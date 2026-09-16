@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { formatoPesos, usePedidos } from "@/lib/pedidos";
+import { MarcaTauro } from "@/components/MarcaTauro";
 
 export const Route = createFileRoute("/cierre")({
   head: () => ({
@@ -29,7 +30,8 @@ function Cierre() {
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-md pb-10">
-      <header className="superficie-cuero rounded-b-4xl px-5 pb-8 pt-8">
+      <header className="superficie-cuero relative rounded-b-4xl px-5 pb-8 pt-8">
+        <MarcaTauro />
         <Link to="/" className="text-sm text-accent">
           ← Volver a pedidos
         </Link>
