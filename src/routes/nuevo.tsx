@@ -27,7 +27,7 @@ function NuevoPedido() {
   const { agregarPedido } = usePedidos();
   const navigate = useNavigate();
   const [cliente, setCliente] = useState("");
-  const [producto, setProducto] = useState(PRODUCTOS[0]);
+  const [producto, setProducto] = useState<string>(PRODUCTOS[0]!);
   const [cantidad, setCantidad] = useState(1);
   const [precio, setPrecio] = useState(45000);
   const [formaPago, setFormaPago] = useState<FormaPago>("efectivo");
