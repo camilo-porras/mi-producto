@@ -10,33 +10,63 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CierreRouteImport } from './routes/cierre'
+import { Route as NuevoRouteImport } from './routes/nuevo'
+import { Route as ComprobanteIdRouteImport } from './routes/comprobante.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CierreRoute = CierreRouteImport.update({
+  id: '/cierre',
+  path: '/cierre',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NuevoRoute = NuevoRouteImport.update({
+  id: '/nuevo',
+  path: '/nuevo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ComprobanteIdRoute = ComprobanteIdRouteImport.update({
+  id: '/comprobante/$id',
+  path: '/comprobante/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/cierre': typeof CierreRoute
+  '/nuevo': typeof NuevoRoute
+  '/comprobante/$id': typeof ComprobanteIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/cierre': typeof CierreRoute
+  '/nuevo': typeof NuevoRoute
+  '/comprobante/$id': typeof ComprobanteIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/cierre': typeof CierreRoute
+  '/nuevo': typeof NuevoRoute
+  '/comprobante/$id': typeof ComprobanteIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/cierre' | '/nuevo' | '/comprobante/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/cierre' | '/nuevo' | '/comprobante/$id'
+  id: '__root__' | '/' | '/cierre' | '/nuevo' | '/comprobante/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CierreRoute: typeof CierreRoute
+  NuevoRoute: typeof NuevoRoute
+  ComprobanteIdRoute: typeof ComprobanteIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +78,35 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/cierre': {
+      id: '/cierre'
+      path: '/cierre'
+      fullPath: '/cierre'
+      preLoaderRoute: typeof CierreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/nuevo': {
+      id: '/nuevo'
+      path: '/nuevo'
+      fullPath: '/nuevo'
+      preLoaderRoute: typeof NuevoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/comprobante/$id': {
+      id: '/comprobante/$id'
+      path: '/comprobante/$id'
+      fullPath: '/comprobante/$id'
+      preLoaderRoute: typeof ComprobanteIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CierreRoute: CierreRoute,
+  NuevoRoute: NuevoRoute,
+  ComprobanteIdRoute: ComprobanteIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
