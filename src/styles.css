@@ -63,6 +63,8 @@
   --color-cuero: var(--cuero);
   --color-camel: var(--camel);
   --color-exito: var(--exito);
+  --color-verde-wa: var(--verde-wa);
+  --color-verde-wa-foreground: var(--verde-wa-foreground);
   --font-display: var(--font-display);
   --font-body: var(--font-body);
 }
@@ -95,6 +97,8 @@
   --cuero: oklch(0.42 0.085 52);
   --camel: oklch(0.7 0.09 68);
   --exito: oklch(0.55 0.11 150);
+  --verde-wa: oklch(0.55 0.13 150);
+  --verde-wa-foreground: oklch(0.98 0.01 150);
   --gradiente-cuero: linear-gradient(135deg, oklch(0.4 0.08 48), oklch(0.55 0.1 62));
   --sombra-suave: 0 8px 24px oklch(0.4 0.08 52 / 0.12);
   --chart-1: oklch(0.646 0.222 41.116);
