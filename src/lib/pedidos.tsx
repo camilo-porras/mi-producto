@@ -6,6 +6,11 @@ export type FormaPago = "efectivo" | "transferencia";
 export type Pedido = {
   id: string;
   cliente: string;
+  negocio?: string;
+  telefono?: string;
+  direccion?: string;
+  ciudad?: string;
+  departamento?: string;
   producto: string;
   cantidad: number;
   precioUnitario: number;
