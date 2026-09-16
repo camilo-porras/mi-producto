@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { formatoPesos, usePedidos } from "@/lib/pedidos";
+import { MarcaTauro } from "@/components/MarcaTauro";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -28,7 +29,8 @@ function Inicio() {
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-md pb-32">
-      <header className="superficie-cuero rounded-b-4xl px-5 pb-8 pt-8">
+      <header className="superficie-cuero relative rounded-b-4xl px-5 pb-8 pt-8">
+        <MarcaTauro />
         <p className="text-sm uppercase tracking-widest text-accent">Mano Facturas Tauro</p>
         <h1 className="mt-1 text-3xl font-semibold">Tauro Control</h1>
         <div className="mt-6 rounded-2xl bg-background/15 p-4 backdrop-blur">
