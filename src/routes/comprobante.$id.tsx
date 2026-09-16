@@ -105,7 +105,7 @@ function Comprobante() {
             href={`https://wa.me/?text=${texto}`}
             target="_blank"
             rel="noreferrer"
-            className="flex h-16 w-full items-center justify-center rounded-2xl border-2 border-primary text-lg font-bold text-primary"
+            className="flex h-16 w-full items-center justify-center rounded-2xl bg-verde-wa text-lg font-bold text-verde-wa-foreground shadow-lg"
           >
             Compartir por WhatsApp
           </a>
