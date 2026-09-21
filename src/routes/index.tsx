@@ -53,7 +53,7 @@ function Inicio() {
         <ul className="mt-4 space-y-3">
           {ordenados.map((p) => {
             const totalPedido = p.cantidad * p.precioUnitario;
-            const esPendienteAlto = !p.entregado && totalPedido > 100000;
+            const esPendienteAlto = !p.entregado && totalPedido > 50000;
 
             return (
               <li key={p.id}>
