@@ -51,34 +51,43 @@ function Inicio() {
         </div>
 
         <ul className="mt-4 space-y-3">
-          {ordenados.map((p) => (
-            <li key={p.id}>
-              <Link
-                to="/comprobante/$id"
-                params={{ id: p.id }}
-                className="tarjeta-cuero flex items-center justify-between gap-3 p-4"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-lg font-semibold">{p.cliente}</p>
-                  <p className="truncate text-sm text-muted-foreground">
-                    {p.cantidad} × {p.producto}
-                  </p>
+          {ordenados.map((p) => {
+            const totalPedido = p.cantidad * p.precioUnitario;
+            const esPendienteAlto = !p.entregado && totalPedido > 100000;
+
+            return (
+              <li key={p.id}>
+                <Link
+                  to="/comprobante/$id"
+                  params={{ id: p.id }}
+                  className="tarjeta-cuero flex items-center justify-between gap-3 p-4"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-lg font-semibold">{p.cliente}</p>
+                    <p className="truncate text-sm text-muted-foreground">
+                      {p.cantidad} × {p.producto}
+                    </p>
+                    <span
+                      className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-bold ${
+                        p.entregado
+                          ? "bg-muted text-muted-foreground"
+                          : "bg-accent text-accent-foreground"
+                      }`}
+                    >
+                      {p.entregado ? "Entregado" : "Pendiente"}
+                    </span>
+                  </div>
                   <span
-                    className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-bold ${
-                      p.entregado
-                        ? "bg-muted text-muted-foreground"
-                        : "bg-accent text-accent-foreground"
+                    className={`shrink-0 text-lg font-bold ${
+                      esPendienteAlto ? "text-destructive" : "text-primary"
                     }`}
                   >
-                    {p.entregado ? "Entregado" : "Pendiente"}
+                    {formatoPesos(totalPedido)}
                   </span>
-                </div>
-                <span className="shrink-0 text-lg font-bold text-primary">
-                  {formatoPesos(p.cantidad * p.precioUnitario)}
-                </span>
-              </Link>
-            </li>
-          ))}
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       </main>
 
