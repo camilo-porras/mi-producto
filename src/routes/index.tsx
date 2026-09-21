@@ -32,7 +32,7 @@ function Inicio() {
       <header className="superficie-cuero relative rounded-b-4xl px-5 pb-8 pt-8">
         <MarcaTauro className="pointer-events-none absolute right-5 top-7 h-20 w-20 object-contain" />
         <p className="text-sm uppercase tracking-widest text-accent">Mano Facturas Tauro</p>
-        <h1 className="mt-1 text-3xl font-semibold">Tauro Control</h1>
+        <h1 className="mt-1 text-3xl font-semibold">Tauro Control — Pedidos de Don Tauro</h1>
         <div className="mt-6 rounded-2xl bg-background/15 p-4 backdrop-blur">
           <p className="text-sm text-accent">Pedidos pendientes hoy</p>
           <div className="mt-1 flex items-end justify-between">
