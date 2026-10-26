@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { supabase } from "@/lib/supabase";
 
-export type Producto = "Billetera clásica café" | "Cinturón camel" | "Cinturón trenzado negro";
 export type FormaPago = "efectivo" | "transferencia";
 
 export type Pedido = {
@@ -20,102 +20,151 @@ export type Pedido = {
   fecha: string;
 };
 
+export type Producto = { id: string; nombre: string; stock: number };
+
 export const formatoPesos = (valor: number) =>
   "$" + Math.round(valor).toLocaleString("es-CO", { maximumFractionDigits: 0 });
 
-const hoy = new Date().toISOString();
+// Fila tal como vive en la tabla "pedidos" de Supabase.
+type FilaPedido = {
+  id: string;
+  created_at: string;
+  cliente: string;
+  producto_id: string;
+  cantidad: number;
+  estado: string;
+  medio_pago: string | null;
+  monto: number | null;
+};
 
-const pedidosIniciales: Pedido[] = [
-  {
-    id: "1001",
-    cliente: "Doña Luz",
-    producto: "Billetera clásica café",
-    cantidad: 2,
-    precioUnitario: 45000,
-    formaPago: "efectivo",
-    registradoPor: "Don Tauro",
-    entregado: false,
-    fecha: hoy,
-  },
-  {
-    id: "1002",
-    cliente: "La vecina Luisa",
-    producto: "Cinturón trenzado negro",
-    cantidad: 1,
-    precioUnitario: 85000,
-    formaPago: "transferencia",
-    registradoPor: "Ayudante",
-    entregado: false,
-    fecha: hoy,
-  },
-  {
-    id: "1003",
-    cliente: "Carlos",
-    producto: "Cinturón camel",
-    cantidad: 3,
-    precioUnitario: 60000,
-    formaPago: "efectivo",
-    registradoPor: "Don Tauro",
-    entregado: true,
-    fecha: hoy,
-  },
-  {
-    id: "1004",
-    cliente: "Marta del centro",
-    producto: "Billetera clásica café",
-    cantidad: 1,
-    precioUnitario: 180000,
-    formaPago: "transferencia",
-    registradoPor: "Don Tauro",
-    entregado: true,
-    fecha: hoy,
-  },
-];
+const COLUMNAS_PEDIDO = "id, created_at, cliente, producto_id, cantidad, estado, medio_pago, monto";
+
+// Convierte una fila de la base en el Pedido que usan las pantallas.
+// El precio unitario se calcula: monto (total) / cantidad.
+function aPedido(fila: FilaPedido, productos: Producto[]): Pedido {
+  const monto = Number(fila.monto ?? 0);
+  return {
+    id: fila.id,
+    cliente: fila.cliente,
+    producto: productos.find((p) => p.id === fila.producto_id)?.nombre ?? "Producto",
+    cantidad: fila.cantidad,
+    precioUnitario: fila.cantidad > 0 ? monto / fila.cantidad : 0,
+    formaPago: fila.medio_pago?.toLowerCase() === "transferencia" ? "transferencia" : "efectivo",
+    registradoPor: "—", // la base no guarda quién registró (no está en la sección 7 del BRD)
+    entregado: fila.estado === "Entregado",
+    fecha: fila.created_at,
+  };
+}
 
 type Ctx = {
   pedidos: Pedido[];
-  agregarPedido: (p: Omit<Pedido, "id" | "entregado" | "fecha">) => Pedido;
-  marcarEntregado: (id: string) => void;
+  productos: Producto[];
+  cargando: boolean;
+  agregarPedido: (p: Omit<Pedido, "id" | "entregado" | "fecha">) => Promise<Pedido>;
+  marcarEntregado: (id: string) => Promise<void>;
 };
 
 const PedidosContext = createContext<Ctx | null>(null);
-const CLAVE = "tauro-control-pedidos";
 
 export function PedidosProvider({ children }: { children: ReactNode }) {
-  const [pedidos, setPedidos] = useState<Pedido[]>(pedidosIniciales);
+  const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [cargando, setCargando] = useState(true);
 
+  // READ: al abrir la app se leen productos y pedidos desde Supabase.
   useEffect(() => {
-    const guardado = localStorage.getItem(CLAVE);
-    if (guardado) {
-      try {
-        setPedidos(JSON.parse(guardado) as Pedido[]);
-      } catch {
-        /* datos corruptos: se conservan los de ejemplo */
+    let activo = true;
+    (async () => {
+      const [prod, ped] = await Promise.all([
+        supabase.from("productos").select("id, nombre, stock").order("nombre"),
+        supabase.from("pedidos").select(COLUMNAS_PEDIDO).order("created_at", { ascending: false }),
+      ]);
+      if (!activo) return;
+      if (prod.error || ped.error) {
+        console.error("Error leyendo Supabase:", prod.error ?? ped.error);
+      } else {
+        const lista = prod.data as Producto[];
+        setProductos(lista);
+        setPedidos((ped.data as FilaPedido[]).map((f) => aPedido(f, lista)));
       }
-    }
+      setCargando(false);
+    })();
+    return () => {
+      activo = false;
+    };
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem(CLAVE, JSON.stringify(pedidos));
-  }, [pedidos]);
 
   const valor = useMemo<Ctx>(
     () => ({
       pedidos,
-      agregarPedido: (datos) => {
-        const nuevo: Pedido = {
-          ...datos,
-          id: String(Date.now()),
-          entregado: false,
-          fecha: new Date().toISOString(),
-        };
+      productos,
+      cargando,
+
+      // CREATE: inserta el pedido; el id y la fecha los genera la base.
+      agregarPedido: async (datos) => {
+        const prod = productos.find((p) => p.nombre === datos.producto);
+        if (!prod) throw new Error("Producto no encontrado");
+        const { data, error } = await supabase
+          .from("pedidos")
+          .insert({
+            cliente: datos.cliente,
+            producto_id: prod.id,
+            cantidad: datos.cantidad,
+            estado: "Pendiente",
+            medio_pago: datos.formaPago === "transferencia" ? "Transferencia" : "Efectivo",
+            monto: datos.cantidad * datos.precioUnitario,
+          })
+          .select(COLUMNAS_PEDIDO)
+          .single();
+        if (error || !data) throw new Error(error?.message ?? "No se pudo guardar el pedido");
+        // Se conservan en pantalla los datos extra del formulario (la base no los guarda).
+        const base = aPedido(data as FilaPedido, productos);
+        const nuevo: Pedido = { ...base, registradoPor: datos.registradoPor };
+        if (datos.negocio) nuevo.negocio = datos.negocio;
+        if (datos.telefono) nuevo.telefono = datos.telefono;
+        if (datos.direccion) nuevo.direccion = datos.direccion;
+        if (datos.ciudad) nuevo.ciudad = datos.ciudad;
+        if (datos.departamento) nuevo.departamento = datos.departamento;
         setPedidos((prev) => [nuevo, ...prev]);
         return nuevo;
       },
-      marcarEntregado: (id) =>
-        setPedidos((prev) => prev.map((p) => (p.id === id ? { ...p, entregado: true } : p))),
+
+      // UPDATE: marca el pedido como Entregado y descuenta el stock.
+      marcarEntregado: async (id) => {
+        const pedido = pedidos.find((p) => p.id === id);
+        if (!pedido || pedido.entregado) return;
+        const prod = productos.find((p) => p.nombre === pedido.producto);
+
+        const r1 = await supabase.from("pedidos").update({ estado: "Entregado" }).eq("id", id);
+        if (r1.error) {
+          console.error("No se pudo marcar como entregado:", r1.error);
+          return;
+        }
+
+        let stockNuevo: number | null = null;
+        if (prod) {
+          stockNuevo = Math.max(prod.stock - pedido.cantidad, 0);
+          const r2 = await supabase
+            .from("productos")
+            .update({ stock: stockNuevo })
+            .eq("id", prod.id);
+          if (r2.error) {
+            // Si falla el stock se revierte el pedido para no dejar datos inconsistentes.
+            console.error("No se pudo descontar el stock:", r2.error);
+            await supabase.from("pedidos").update({ estado: "Pendiente" }).eq("id", id);
+            return;
+          }
+        }
+
+        setPedidos((prev) => prev.map((p) => (p.id === id ? { ...p, entregado: true } : p)));
+        if (prod && stockNuevo !== null) {
+          setProductos((prev) =>
+            prev.map((p) => (p.id === prod.id ? { ...p, stock: stockNuevo! } : p)),
+          );
+        }
+      },
     }),
-    [pedidos],
+    [pedidos, productos, cargando],
   );
 
   return <PedidosContext.Provider value={valor}>{children}</PedidosContext.Provider>;
