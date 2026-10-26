@@ -2,11 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { formatoPesos, usePedidos, type FormaPago } from "@/lib/pedidos";
-import {
-  guardarCliente,
-  listarClientes,
-  type FichaCliente,
-} from "@/lib/clientes.functions";
+import { guardarCliente, listarClientes, type FichaCliente } from "@/lib/clientes.functions";
 import { MarcaTauro } from "@/components/MarcaTauro";
 
 export const Route = createFileRoute("/nuevo")({
@@ -24,14 +20,12 @@ export const Route = createFileRoute("/nuevo")({
   component: NuevoPedido,
 });
 
-const PRODUCTOS = ["Billetera clásica café", "Cinturón camel", "Cinturón trenzado negro"];
-
 const etiqueta = "block text-sm font-bold text-muted-foreground mb-2";
 const campo =
   "w-full rounded-2xl border border-border bg-card px-4 py-4 text-lg outline-none focus:border-primary";
 
 function NuevoPedido() {
-  const { agregarPedido } = usePedidos();
+  const { agregarPedido, productos } = usePedidos();
   const navigate = useNavigate();
   const consultarClientes = useServerFn(listarClientes);
   const guardarFicha = useServerFn(guardarCliente);
@@ -45,7 +39,7 @@ function NuevoPedido() {
   const [dispositivoId, setDispositivoId] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [errorGuardado, setErrorGuardado] = useState("");
-  const [producto, setProducto] = useState<string>(PRODUCTOS[0]!);
+  const [producto, setProducto] = useState<string>("");
   const [cantidad, setCantidad] = useState(1);
   const [precio, setPrecio] = useState(45000);
   const [formaPago, setFormaPago] = useState<FormaPago>("efectivo");
@@ -63,6 +57,10 @@ function NuevoPedido() {
       .then(setClientes)
       .catch(() => setErrorGuardado("No pudimos cargar los clientes guardados."));
   }, [consultarClientes]);
+
+  useEffect(() => {
+    if (!producto && productos[0]) setProducto(productos[0].nombre);
+  }, [productos, producto]);
 
   const completarCliente = (nombre: string) => {
     setCliente(nombre);
@@ -92,27 +90,33 @@ function NuevoPedido() {
       departamento: departamento.trim(),
     };
 
+    // La ficha del cliente es opcional: si falla, el pedido igual se guarda.
     try {
       await guardarFicha({ data: { dispositivoId, ...ficha } });
     } catch {
-      setErrorGuardado("No pudimos guardar los datos del cliente. Intenta de nuevo.");
+      console.warn("No se pudo guardar la ficha del cliente");
+    }
+
+    let nuevo;
+    try {
+      nuevo = await agregarPedido({
+        cliente: ficha.nombre,
+        negocio: ficha.negocio,
+        telefono: ficha.telefono,
+        direccion: ficha.direccion,
+        ciudad: ficha.ciudad,
+        departamento: ficha.departamento,
+        producto,
+        cantidad,
+        precioUnitario: precio,
+        formaPago,
+        registradoPor,
+      });
+    } catch {
+      setErrorGuardado("No pudimos guardar el pedido. Intenta de nuevo.");
       setGuardando(false);
       return;
     }
-
-    const nuevo = agregarPedido({
-      cliente: ficha.nombre,
-      negocio: ficha.negocio,
-      telefono: ficha.telefono,
-      direccion: ficha.direccion,
-      ciudad: ficha.ciudad,
-      departamento: ficha.departamento,
-      producto,
-      cantidad,
-      precioUnitario: precio,
-      formaPago,
-      registradoPor,
-    });
     navigate({ to: "/comprobante/$id", params: { id: nuevo.id } });
   };
 
@@ -237,9 +241,9 @@ function NuevoPedido() {
             value={producto}
             onChange={(e) => setProducto(e.target.value)}
           >
-            {PRODUCTOS.map((p) => (
-              <option key={p} value={p}>
-                {p}
+            {productos.map((p) => (
+              <option key={p.id} value={p.nombre}>
+                {p.nombre}
               </option>
             ))}
           </select>
@@ -321,7 +325,10 @@ function NuevoPedido() {
         </div>
 
         {errorGuardado ? (
-          <p role="alert" className="rounded-2xl bg-destructive/10 px-4 py-3 text-sm font-bold text-destructive">
+          <p
+            role="alert"
+            className="rounded-2xl bg-destructive/10 px-4 py-3 text-sm font-bold text-destructive"
+          >
             {errorGuardado}
           </p>
         ) : null}
