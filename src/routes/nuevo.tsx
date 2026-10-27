@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { formatoPesos, usePedidos, type FormaPago } from "@/lib/pedidos";
+import { formatoPesos, STOCK_BAJO, usePedidos, type FormaPago } from "@/lib/pedidos";
 import { guardarCliente, listarClientes, type FichaCliente } from "@/lib/clientes.functions";
 import { MarcaTauro } from "@/components/MarcaTauro";
 
@@ -46,6 +46,7 @@ function NuevoPedido() {
   const [registradoPor, setRegistradoPor] = useState("Don Tauro");
 
   const total = cantidad * precio;
+  const productoActual = productos.find((p) => p.nombre === producto);
 
   useEffect(() => {
     const clave = "tauro-control-dispositivo";
@@ -247,6 +248,20 @@ function NuevoPedido() {
               </option>
             ))}
           </select>
+          {productoActual ? (
+            <p
+              className={`mt-2 text-sm font-bold ${
+                cantidad > productoActual.stock ? "text-destructive" : "text-muted-foreground"
+              }`}
+            >
+              Disponibles: {productoActual.stock}
+              {cantidad > productoActual.stock
+                ? ` · pides ${cantidad}, no alcanzan`
+                : productoActual.stock <= STOCK_BAJO
+                  ? " · stock bajo"
+                  : ""}
+            </p>
+          ) : null}
         </div>
 
         <div className="grid grid-cols-2 gap-4">

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { usePedidos } from "@/lib/pedidos";
+import { STOCK_BAJO, usePedidos } from "@/lib/pedidos";
 import { MarcaTauro } from "@/components/MarcaTauro";
 
 export const Route = createFileRoute("/stock")({
@@ -86,7 +86,14 @@ function Inventario() {
         {productos.map((p) => (
           <div key={p.id} className="tarjeta-cuero p-5">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-lg font-semibold">{p.nombre}</p>
+              <div className="min-w-0">
+                <p className="text-lg font-semibold">{p.nombre}</p>
+                {p.stock <= STOCK_BAJO ? (
+                  <span className="mt-1 inline-block rounded-full bg-destructive/10 px-3 py-1 text-xs font-bold text-destructive">
+                    {p.stock === 0 ? "Agotado" : "Stock bajo"}
+                  </span>
+                ) : null}
+              </div>
               <p className="shrink-0 text-3xl font-bold text-primary">{p.stock}</p>
             </div>
             <label
