@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CierreRouteImport } from './routes/cierre'
 import { Route as NuevoRouteImport } from './routes/nuevo'
+import { Route as StockRouteImport } from './routes/stock'
 import { Route as ComprobanteIdRouteImport } from './routes/comprobante.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -29,6 +30,11 @@ const NuevoRoute = NuevoRouteImport.update({
   path: '/nuevo',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StockRoute = StockRouteImport.update({
+  id: '/stock',
+  path: '/stock',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ComprobanteIdRoute = ComprobanteIdRouteImport.update({
   id: '/comprobante/$id',
   path: '/comprobante/$id',
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/cierre': typeof CierreRoute
   '/nuevo': typeof NuevoRoute
+  '/stock': typeof StockRoute
   '/comprobante/$id': typeof ComprobanteIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/cierre': typeof CierreRoute
   '/nuevo': typeof NuevoRoute
+  '/stock': typeof StockRoute
   '/comprobante/$id': typeof ComprobanteIdRoute
 }
 export interface FileRoutesById {
@@ -52,20 +60,22 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/cierre': typeof CierreRoute
   '/nuevo': typeof NuevoRoute
+  '/stock': typeof StockRoute
   '/comprobante/$id': typeof ComprobanteIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/cierre' | '/nuevo' | '/comprobante/$id'
+  fullPaths: '/' | '/cierre' | '/nuevo' | '/stock' | '/comprobante/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/cierre' | '/nuevo' | '/comprobante/$id'
-  id: '__root__' | '/' | '/cierre' | '/nuevo' | '/comprobante/$id'
+  to: '/' | '/cierre' | '/nuevo' | '/stock' | '/comprobante/$id'
+  id: '__root__' | '/' | '/cierre' | '/nuevo' | '/stock' | '/comprobante/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CierreRoute: typeof CierreRoute
   NuevoRoute: typeof NuevoRoute
+  StockRoute: typeof StockRoute
   ComprobanteIdRoute: typeof ComprobanteIdRoute
 }
 
@@ -92,6 +102,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NuevoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/stock': {
+      id: '/stock'
+      path: '/stock'
+      fullPath: '/stock'
+      preLoaderRoute: typeof StockRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/comprobante/$id': {
       id: '/comprobante/$id'
       path: '/comprobante/$id'
@@ -106,6 +123,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CierreRoute: CierreRoute,
   NuevoRoute: NuevoRoute,
+  StockRoute: StockRoute,
   ComprobanteIdRoute: ComprobanteIdRoute,
 }
 export const routeTree = rootRouteImport
