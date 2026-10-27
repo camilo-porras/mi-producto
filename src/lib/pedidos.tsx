@@ -22,6 +22,9 @@ export type Pedido = {
 
 export type Producto = { id: string; nombre: string; stock: number };
 
+// A partir de esta cantidad (o menos) un producto se marca como "stock bajo".
+export const STOCK_BAJO = 5;
+
 export const formatoPesos = (valor: number) =>
   "$" + Math.round(valor).toLocaleString("es-CO", { maximumFractionDigits: 0 });
 
