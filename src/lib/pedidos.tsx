@@ -62,6 +62,11 @@ type Ctx = {
   cargando: boolean;
   agregarPedido: (p: Omit<Pedido, "id" | "entregado" | "fecha">) => Promise<Pedido>;
   marcarEntregado: (id: string) => Promise<void>;
+  registrarMovimiento: (
+    productoId: string,
+    tipo: "entrada" | "salida",
+    cantidad: number,
+  ) => Promise<number>;
 };
 
 const PedidosContext = createContext<Ctx | null>(null);
@@ -127,6 +132,23 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
         if (datos.departamento) nuevo.departamento = datos.departamento;
         setPedidos((prev) => [nuevo, ...prev]);
         return nuevo;
+      },
+
+      // CREATE (inventario): registra una entrada o salida de producto.
+      // Las reglas (cantidad positiva, stock suficiente, todo o nada) viven en
+      // la función registrar_movimiento de Supabase. Devuelve el nuevo stock.
+      registrarMovimiento: async (productoId, tipo, cantidad) => {
+        const { data, error } = await supabase.rpc("registrar_movimiento", {
+          p_producto_id: productoId,
+          p_tipo: tipo,
+          p_cantidad: cantidad,
+        });
+        if (error) throw new Error(error.message);
+        const nuevoStock = Number(data);
+        setProductos((prev) =>
+          prev.map((p) => (p.id === productoId ? { ...p, stock: nuevoStock } : p)),
+        );
+        return nuevoStock;
       },
 
       // UPDATE: marca el pedido como Entregado y descuenta el stock.
