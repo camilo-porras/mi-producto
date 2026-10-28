@@ -22,8 +22,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Inicio() {
-  const { pedidos, productos, cargando } = usePedidos();
-  const inventario = [...productos].sort((a, b) => a.stock - b.stock);
+  const { pedidos, productos } = usePedidos();
   const porAgotarse = productos.filter((p) => p.stock <= STOCK_BAJO).length;
   const ordenados = [...pedidos].sort((a, b) => Number(a.entregado) - Number(b.entregado));
   const pendientes = pedidos.filter((p) => !p.entregado);
@@ -45,55 +44,29 @@ function Inicio() {
       </header>
 
       <main className="px-5">
-        <section className="mt-6">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold">Inventario</h2>
-            <Link to="/stock" className="text-sm font-semibold text-primary underline">
-              Registrar entrada o salida
+        {porAgotarse > 0 ? (
+          <Link
+            to="/inventario"
+            role="alert"
+            className="mt-6 block rounded-2xl bg-destructive/10 px-4 py-3 text-sm font-bold text-destructive"
+          >
+            {porAgotarse === 1
+              ? "1 producto con stock bajo"
+              : `${porAgotarse} productos con stock bajo`}{" "}
+            · Ver inventario
+          </Link>
+        ) : null}
+
+        <div className="mt-6 flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Pedidos del día</h2>
+          <div className="flex gap-4">
+            <Link to="/inventario" className="text-sm font-semibold text-primary underline">
+              Inventario
+            </Link>
+            <Link to="/cierre" className="text-sm font-semibold text-primary underline">
+              Cierre de caja
             </Link>
           </div>
-          {porAgotarse > 0 ? (
-            <p
-              role="alert"
-              className="mt-3 rounded-2xl bg-destructive/10 px-4 py-3 text-sm font-bold text-destructive"
-            >
-              {porAgotarse === 1
-                ? "1 producto con stock bajo"
-                : `${porAgotarse} productos con stock bajo`}
-            </p>
-          ) : null}
-          {cargando ? (
-            <p className="mt-3 text-sm text-muted-foreground">Cargando inventario…</p>
-          ) : (
-            <ul className="tarjeta-cuero mt-3 divide-y divide-border">
-              {inventario.map((p) => (
-                <li key={p.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                  <span className="truncate">{p.nombre}</span>
-                  <span className="flex shrink-0 items-center gap-2">
-                    {p.stock <= STOCK_BAJO ? (
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-bold ${
-                          p.stock === 0
-                            ? "bg-destructive text-destructive-foreground"
-                            : "bg-destructive/10 text-destructive"
-                        }`}
-                      >
-                        {p.stock === 0 ? "Agotado" : "Stock bajo"}
-                      </span>
-                    ) : null}
-                    <span className="text-lg font-bold text-primary">{p.stock}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <div className="mt-8 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Pedidos del día</h2>
-          <Link to="/cierre" className="text-sm font-semibold text-primary underline">
-            Cierre de caja
-          </Link>
         </div>
 
         <ul className="mt-4 space-y-3">

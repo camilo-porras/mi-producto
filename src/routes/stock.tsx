@@ -56,8 +56,8 @@ function Inventario() {
     <div className="mx-auto min-h-screen w-full max-w-md pb-10">
       <header className="superficie-cuero relative rounded-b-4xl px-5 pb-8 pt-8">
         <MarcaTauro className="pointer-events-none absolute right-5 top-7 h-20 w-20 object-contain" />
-        <Link to="/" className="text-sm text-accent">
-          ← Volver a pedidos
+        <Link to="/inventario" className="text-sm text-accent">
+          ← Volver al inventario
         </Link>
         <h1 className="mt-2 text-2xl font-semibold">Inventario</h1>
         <p className="mt-1 text-sm text-accent">Registra entradas y salidas de producto</p>
