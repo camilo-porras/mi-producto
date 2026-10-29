@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { formatoPesos, usePedidos } from "@/lib/pedidos";
 import { MarcaTauro } from "@/components/MarcaTauro";
@@ -21,6 +22,20 @@ function Comprobante() {
   const { id } = Route.useParams();
   const { pedidos, marcarEntregado } = usePedidos();
   const pedido = pedidos.find((p) => p.id === id);
+  const [entregando, setEntregando] = useState(false);
+  const [errorEntrega, setErrorEntrega] = useState("");
+
+  const entregar = async (pedidoId: string) => {
+    setEntregando(true);
+    setErrorEntrega("");
+    try {
+      await marcarEntregado(pedidoId);
+    } catch (e) {
+      setErrorEntrega(e instanceof Error ? e.message : "No se pudo entregar, intenta de nuevo.");
+    } finally {
+      setEntregando(false);
+    }
+  };
 
   if (!pedido) {
     return (
@@ -115,12 +130,23 @@ function Comprobante() {
               Pedido entregado ✓
             </p>
           ) : (
-            <button
-              onClick={() => marcarEntregado(pedido.id)}
-              className="superficie-cuero h-16 w-full rounded-2xl text-xl font-bold shadow-lg"
-            >
-              Marcar como entregado
-            </button>
+            <>
+              {errorEntrega ? (
+                <p
+                  role="alert"
+                  className="rounded-2xl bg-destructive/10 px-4 py-3 text-sm font-bold text-destructive"
+                >
+                  {errorEntrega}
+                </p>
+              ) : null}
+              <button
+                onClick={() => entregar(pedido.id)}
+                disabled={entregando}
+                className="superficie-cuero h-16 w-full rounded-2xl text-xl font-bold shadow-lg disabled:opacity-60"
+              >
+                {entregando ? "Entregando…" : "Marcar como entregado"}
+              </button>
+            </>
           )}
         </div>
       </main>
