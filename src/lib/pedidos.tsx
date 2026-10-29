@@ -65,6 +65,7 @@ type Ctx = {
   cargando: boolean;
   agregarPedido: (p: Omit<Pedido, "id" | "entregado" | "fecha">) => Promise<Pedido>;
   marcarEntregado: (id: string) => Promise<void>;
+  anularPedido: (id: string) => Promise<void>;
   registrarMovimiento: (
     productoId: string,
     tipo: "entrada" | "salida",
@@ -85,7 +86,11 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
     (async () => {
       const [prod, ped] = await Promise.all([
         supabase.from("productos").select("id, nombre, stock").order("nombre"),
-        supabase.from("pedidos").select(COLUMNAS_PEDIDO).order("created_at", { ascending: false }),
+        supabase
+          .from("pedidos")
+          .select(COLUMNAS_PEDIDO)
+          .neq("estado", "Anulado") // los anulados siguen en la base, pero la app los ignora
+          .order("created_at", { ascending: false }),
       ]);
       if (!activo) return;
       if (prod.error || ped.error) {
@@ -152,6 +157,14 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
           prev.map((p) => (p.id === productoId ? { ...p, stock: nuevoStock } : p)),
         );
         return nuevoStock;
+      },
+
+      // DELETE lógico: anula un pedido pendiente SIN borrar la fila. La función
+      // anular_pedido de Supabase cambia el estado a "Anulado" y valida las reglas.
+      anularPedido: async (id) => {
+        const { error } = await supabase.rpc("anular_pedido", { p_pedido_id: id });
+        if (error) throw new Error(error.message);
+        setPedidos((prev) => prev.filter((p) => p.id !== id));
       },
 
       // UPDATE con lógica de negocio: entrega el pedido en UNA sola operación.
