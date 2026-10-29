@@ -154,37 +154,21 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
         return nuevoStock;
       },
 
-      // UPDATE: marca el pedido como Entregado y descuenta el stock.
+      // UPDATE con lógica de negocio: entrega el pedido en UNA sola operación.
+      // La función entregar_pedido de Supabase valida (pedido pendiente, stock
+      // suficiente), descuenta el stock, marca el pedido y guarda la salida.
+      // Si algo falla no se guarda nada y el mensaje llega aquí como error.
       marcarEntregado: async (id) => {
         const pedido = pedidos.find((p) => p.id === id);
         if (!pedido || pedido.entregado) return;
+        const { data, error } = await supabase.rpc("entregar_pedido", { p_pedido_id: id });
+        if (error) throw new Error(error.message);
+        const nuevoStock = Number(data);
         const prod = productos.find((p) => p.nombre === pedido.producto);
-
-        const r1 = await supabase.from("pedidos").update({ estado: "Entregado" }).eq("id", id);
-        if (r1.error) {
-          console.error("No se pudo marcar como entregado:", r1.error);
-          return;
-        }
-
-        let stockNuevo: number | null = null;
-        if (prod) {
-          stockNuevo = Math.max(prod.stock - pedido.cantidad, 0);
-          const r2 = await supabase
-            .from("productos")
-            .update({ stock: stockNuevo })
-            .eq("id", prod.id);
-          if (r2.error) {
-            // Si falla el stock se revierte el pedido para no dejar datos inconsistentes.
-            console.error("No se pudo descontar el stock:", r2.error);
-            await supabase.from("pedidos").update({ estado: "Pendiente" }).eq("id", id);
-            return;
-          }
-        }
-
         setPedidos((prev) => prev.map((p) => (p.id === id ? { ...p, entregado: true } : p)));
-        if (prod && stockNuevo !== null) {
+        if (prod) {
           setProductos((prev) =>
-            prev.map((p) => (p.id === prod.id ? { ...p, stock: stockNuevo! } : p)),
+            prev.map((p) => (p.id === prod.id ? { ...p, stock: nuevoStock } : p)),
           );
         }
       },
