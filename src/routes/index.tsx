@@ -23,7 +23,7 @@ export const Route = createFileRoute("/")({
 
 function Inicio() {
   const { pedidos, productos } = usePedidos();
-  const porAgotarse = productos.filter((p) => p.stock <= STOCK_BAJO).length;
+  const porAgotarse = productos.filter((p) => p.disponible <= STOCK_BAJO).length;
   const ordenados = [...pedidos].sort((a, b) => Number(a.entregado) - Number(b.entregado));
   const pendientes = pedidos.filter((p) => !p.entregado);
   const totalPendiente = pendientes.reduce((s, p) => s + p.cantidad * p.precioUnitario, 0);

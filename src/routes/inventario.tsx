@@ -17,8 +17,8 @@ export const Route = createFileRoute("/inventario")({
 
 function Inventario() {
   const { productos, cargando } = usePedidos();
-  const ordenados = [...productos].sort((a, b) => a.stock - b.stock);
-  const porAgotarse = productos.filter((p) => p.stock <= STOCK_BAJO).length;
+  const ordenados = [...productos].sort((a, b) => a.disponible - b.disponible);
+  const porAgotarse = productos.filter((p) => p.disponible <= STOCK_BAJO).length;
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-md pb-32">
@@ -28,7 +28,7 @@ function Inventario() {
           ← Volver a pedidos
         </Link>
         <h1 className="mt-2 text-2xl font-semibold">Inventario</h1>
-        <p className="mt-1 text-sm text-accent">Stock disponible de cada producto</p>
+        <p className="mt-1 text-sm text-accent">Lo que realmente puedes ofrecer hoy</p>
       </header>
 
       <main className="px-5 py-6">
@@ -51,20 +51,28 @@ function Inventario() {
           <ul className="tarjeta-cuero mt-4 divide-y divide-border">
             {ordenados.map((p) => (
               <li key={p.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                <span className="truncate">{p.nombre}</span>
+                <div className="min-w-0">
+                  <p className="truncate">{p.nombre}</p>
+                  {p.comprometido > 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      {p.stock} en bodega · {p.comprometido} apartado
+                      {p.comprometido === 1 ? "" : "s"} por pedidos
+                    </p>
+                  ) : null}
+                </div>
                 <span className="flex shrink-0 items-center gap-2">
-                  {p.stock <= STOCK_BAJO ? (
+                  {p.disponible <= STOCK_BAJO ? (
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-bold ${
-                        p.stock === 0
+                        p.disponible === 0
                           ? "bg-destructive text-destructive-foreground"
                           : "bg-destructive/10 text-destructive"
                       }`}
                     >
-                      {p.stock === 0 ? "Agotado" : "Stock bajo"}
+                      {p.disponible === 0 ? "Agotado" : "Stock bajo"}
                     </span>
                   ) : null}
-                  <span className="text-lg font-bold text-primary">{p.stock}</span>
+                  <span className="text-lg font-bold text-primary">{p.disponible}</span>
                 </span>
               </li>
             ))}

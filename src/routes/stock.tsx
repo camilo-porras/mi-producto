@@ -88,13 +88,22 @@ function Inventario() {
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-lg font-semibold">{p.nombre}</p>
-                {p.stock <= STOCK_BAJO ? (
+                {p.comprometido > 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    {p.comprometido} apartado{p.comprometido === 1 ? "" : "s"} por pedidos
+                    pendientes
+                  </p>
+                ) : null}
+                {p.disponible <= STOCK_BAJO ? (
                   <span className="mt-1 inline-block rounded-full bg-destructive/10 px-3 py-1 text-xs font-bold text-destructive">
-                    {p.stock === 0 ? "Agotado" : "Stock bajo"}
+                    {p.disponible === 0 ? "Agotado" : "Stock bajo"}
                   </span>
                 ) : null}
               </div>
-              <p className="shrink-0 text-3xl font-bold text-primary">{p.stock}</p>
+              <div className="shrink-0 text-right">
+                <p className="text-3xl font-bold text-primary">{p.stock}</p>
+                <p className="text-xs text-muted-foreground">en bodega</p>
+              </div>
             </div>
             <label
               className="mt-4 block text-sm font-bold text-muted-foreground"

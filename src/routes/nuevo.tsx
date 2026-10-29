@@ -249,18 +249,28 @@ function NuevoPedido() {
             ))}
           </select>
           {productoActual ? (
-            <p
-              className={`mt-2 text-sm font-bold ${
-                cantidad > productoActual.stock ? "text-destructive" : "text-muted-foreground"
-              }`}
-            >
-              Disponibles: {productoActual.stock}
-              {cantidad > productoActual.stock
-                ? ` · pides ${cantidad}, no alcanzan`
-                : productoActual.stock <= STOCK_BAJO
-                  ? " · stock bajo"
-                  : ""}
-            </p>
+            <div className="mt-2">
+              <p
+                className={`text-sm font-bold ${
+                  cantidad > productoActual.disponible
+                    ? "text-destructive"
+                    : "text-muted-foreground"
+                }`}
+              >
+                Disponibles: {productoActual.disponible}
+                {cantidad > productoActual.disponible
+                  ? ` · pides ${cantidad}, no alcanzan`
+                  : productoActual.disponible <= STOCK_BAJO
+                    ? " · stock bajo"
+                    : ""}
+              </p>
+              {productoActual.comprometido > 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  {productoActual.stock} en bodega · {productoActual.comprometido} apartado
+                  {productoActual.comprometido === 1 ? "" : "s"} por pedidos pendientes
+                </p>
+              ) : null}
+            </div>
           ) : null}
         </div>
 
