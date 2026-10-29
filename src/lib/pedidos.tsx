@@ -22,6 +22,10 @@ export type Pedido = {
 
 export type Producto = { id: string; nombre: string; stock: number };
 
+// stock = unidades físicas en bodega. comprometido = unidades apartadas por pedidos
+// pendientes. disponible = lo que realmente se puede ofrecer (stock - comprometido).
+export type ProductoVista = Producto & { comprometido: number; disponible: number };
+
 // A partir de esta cantidad (o menos) un producto se marca como "stock bajo".
 export const STOCK_BAJO = 5;
 
@@ -61,7 +65,7 @@ function aPedido(fila: FilaPedido, productos: Producto[]): Pedido {
 
 type Ctx = {
   pedidos: Pedido[];
-  productos: Producto[];
+  productos: ProductoVista[];
   cargando: boolean;
   agregarPedido: (p: Omit<Pedido, "id" | "entregado" | "fecha">) => Promise<Pedido>;
   marcarEntregado: (id: string) => Promise<void>;
@@ -107,10 +111,24 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Las unidades de un pedido pendiente quedan apartadas: siguen en bodega (el stock
+  // solo baja al entregar), pero ya no están disponibles para otro cliente.
+  const productosVista = useMemo<ProductoVista[]>(() => {
+    const apartado = new Map<string, number>();
+    for (const ped of pedidos) {
+      if (!ped.entregado)
+        apartado.set(ped.producto, (apartado.get(ped.producto) ?? 0) + ped.cantidad);
+    }
+    return productos.map((p) => {
+      const comprometido = apartado.get(p.nombre) ?? 0;
+      return { ...p, comprometido, disponible: Math.max(p.stock - comprometido, 0) };
+    });
+  }, [productos, pedidos]);
+
   const valor = useMemo<Ctx>(
     () => ({
       pedidos,
-      productos,
+      productos: productosVista,
       cargando,
 
       // CREATE: inserta el pedido; el id y la fecha los genera la base.
@@ -186,7 +204,7 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
         }
       },
     }),
-    [pedidos, productos, cargando],
+    [pedidos, productos, productosVista, cargando],
   );
 
   return <PedidosContext.Provider value={valor}>{children}</PedidosContext.Provider>;
