@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { formatoPesos, usePedidos } from "@/lib/pedidos";
 import { MarcaTauro } from "@/components/MarcaTauro";
 
@@ -20,10 +20,12 @@ export const Route = createFileRoute("/comprobante/$id")({
 
 function Comprobante() {
   const { id } = Route.useParams();
-  const { pedidos, marcarEntregado } = usePedidos();
+  const { pedidos, marcarEntregado, anularPedido } = usePedidos();
+  const navigate = useNavigate();
   const pedido = pedidos.find((p) => p.id === id);
   const [entregando, setEntregando] = useState(false);
   const [errorEntrega, setErrorEntrega] = useState("");
+  const [confirmandoAnular, setConfirmandoAnular] = useState(false);
 
   const entregar = async (pedidoId: string) => {
     setEntregando(true);
@@ -33,6 +35,19 @@ function Comprobante() {
     } catch (e) {
       setErrorEntrega(e instanceof Error ? e.message : "No se pudo entregar, intenta de nuevo.");
     } finally {
+      setEntregando(false);
+    }
+  };
+
+  const anular = async (pedidoId: string) => {
+    setEntregando(true);
+    setErrorEntrega("");
+    try {
+      await anularPedido(pedidoId);
+      navigate({ to: "/" });
+    } catch (e) {
+      setErrorEntrega(e instanceof Error ? e.message : "No se pudo anular, intenta de nuevo.");
+      setConfirmandoAnular(false);
       setEntregando(false);
     }
   };
@@ -144,8 +159,40 @@ function Comprobante() {
                 disabled={entregando}
                 className="superficie-cuero h-16 w-full rounded-2xl text-xl font-bold shadow-lg disabled:opacity-60"
               >
-                {entregando ? "Entregando…" : "Marcar como entregado"}
+                {entregando && !confirmandoAnular ? "Entregando…" : "Marcar como entregado"}
               </button>
+
+              {confirmandoAnular ? (
+                <div className="rounded-2xl border-2 border-destructive p-4">
+                  <p className="text-center text-base font-bold">
+                    ¿Seguro que quieres anular este pedido?
+                  </p>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => anular(pedido.id)}
+                      disabled={entregando}
+                      className="h-14 rounded-2xl bg-destructive text-base font-bold text-destructive-foreground disabled:opacity-60"
+                    >
+                      Sí, anular
+                    </button>
+                    <button
+                      onClick={() => setConfirmandoAnular(false)}
+                      disabled={entregando}
+                      className="h-14 rounded-2xl border-2 border-primary bg-card text-base font-bold text-primary disabled:opacity-60"
+                    >
+                      No, volver
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmandoAnular(true)}
+                  disabled={entregando}
+                  className="h-14 w-full rounded-2xl border-2 border-destructive bg-card text-base font-bold text-destructive disabled:opacity-60"
+                >
+                  Anular pedido
+                </button>
+              )}
             </>
           )}
         </div>
