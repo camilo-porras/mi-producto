@@ -42,9 +42,13 @@ type FilaPedido = {
   estado: string;
   medio_pago: string | null;
   monto: number | null;
+  anulado_por: string | null;
+  motivo_anulacion: string | null;
+  anulado_at: string | null;
 };
 
-const COLUMNAS_PEDIDO = "id, created_at, cliente, producto_id, cantidad, estado, medio_pago, monto";
+const COLUMNAS_PEDIDO =
+  "id, created_at, cliente, producto_id, cantidad, estado, medio_pago, monto, anulado_por, motivo_anulacion, anulado_at";
 
 // Convierte una fila de la base en el Pedido que usan las pantallas.
 // El precio unitario se calcula: monto (total) / cantidad.
@@ -63,13 +67,30 @@ function aPedido(fila: FilaPedido, productos: Producto[]): Pedido {
   };
 }
 
+// Pedido anulado: la fila sigue en la base, con quién lo anuló, por qué y cuándo.
+export type PedidoAnulado = Pedido & {
+  anuladoPor: string;
+  motivo: string;
+  anuladoEn: string;
+};
+
+function aAnulado(fila: FilaPedido, productos: Producto[]): PedidoAnulado {
+  return {
+    ...aPedido(fila, productos),
+    anuladoPor: fila.anulado_por ?? "—",
+    motivo: fila.motivo_anulacion ?? "—",
+    anuladoEn: fila.anulado_at ?? fila.created_at,
+  };
+}
+
 type Ctx = {
   pedidos: Pedido[];
   productos: ProductoVista[];
   cargando: boolean;
   agregarPedido: (p: Omit<Pedido, "id" | "entregado" | "fecha">) => Promise<Pedido>;
   marcarEntregado: (id: string) => Promise<void>;
-  anularPedido: (id: string) => Promise<void>;
+  anulados: PedidoAnulado[];
+  anularPedido: (id: string, anuladoPor: string, motivo: string) => Promise<void>;
   registrarMovimiento: (
     productoId: string,
     tipo: "entrada" | "salida",
@@ -82,27 +103,34 @@ const PedidosContext = createContext<Ctx | null>(null);
 export function PedidosProvider({ children }: { children: ReactNode }) {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
+  const [anulados, setAnulados] = useState<PedidoAnulado[]>([]);
   const [cargando, setCargando] = useState(true);
 
   // READ: al abrir la app se leen productos y pedidos desde Supabase.
   useEffect(() => {
     let activo = true;
     (async () => {
-      const [prod, ped] = await Promise.all([
+      const [prod, ped, anu] = await Promise.all([
         supabase.from("productos").select("id, nombre, stock").order("nombre"),
         supabase
           .from("pedidos")
           .select(COLUMNAS_PEDIDO)
           .neq("estado", "Anulado") // los anulados siguen en la base, pero la app los ignora
           .order("created_at", { ascending: false }),
+        supabase
+          .from("pedidos")
+          .select(COLUMNAS_PEDIDO)
+          .eq("estado", "Anulado")
+          .order("anulado_at", { ascending: false }),
       ]);
       if (!activo) return;
-      if (prod.error || ped.error) {
-        console.error("Error leyendo Supabase:", prod.error ?? ped.error);
+      if (prod.error || ped.error || anu.error) {
+        console.error("Error leyendo Supabase:", prod.error ?? ped.error ?? anu.error);
       } else {
         const lista = prod.data as Producto[];
         setProductos(lista);
         setPedidos((ped.data as FilaPedido[]).map((f) => aPedido(f, lista)));
+        setAnulados((anu.data as FilaPedido[]).map((f) => aAnulado(f, lista)));
       }
       setCargando(false);
     })();
@@ -129,25 +157,31 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
     () => ({
       pedidos,
       productos: productosVista,
+      anulados,
       cargando,
 
-      // CREATE: inserta el pedido; el id y la fecha los genera la base.
+      // CREATE con lógica de negocio: crea el pedido solo si hay stock disponible.
       agregarPedido: async (datos) => {
         const prod = productos.find((p) => p.nombre === datos.producto);
         if (!prod) throw new Error("Producto no encontrado");
-        const { data, error } = await supabase
+        // La función crear_pedido valida en la base que haya stock DISPONIBLE;
+        // si no alcanza, rechaza el pedido y el mensaje llega aquí como error.
+        const { data: nuevoId, error } = await supabase.rpc("crear_pedido", {
+          p_cliente: datos.cliente,
+          p_producto_id: prod.id,
+          p_cantidad: datos.cantidad,
+          p_medio_pago: datos.formaPago === "transferencia" ? "Transferencia" : "Efectivo",
+          p_monto: datos.cantidad * datos.precioUnitario,
+        });
+        if (error) throw new Error(error.message);
+        const { data, error: errorLectura } = await supabase
           .from("pedidos")
-          .insert({
-            cliente: datos.cliente,
-            producto_id: prod.id,
-            cantidad: datos.cantidad,
-            estado: "Pendiente",
-            medio_pago: datos.formaPago === "transferencia" ? "Transferencia" : "Efectivo",
-            monto: datos.cantidad * datos.precioUnitario,
-          })
           .select(COLUMNAS_PEDIDO)
+          .eq("id", nuevoId as string)
           .single();
-        if (error || !data) throw new Error(error?.message ?? "No se pudo guardar el pedido");
+        if (errorLectura || !data) {
+          throw new Error(errorLectura?.message ?? "No se pudo leer el pedido creado");
+        }
         // Se conservan en pantalla los datos extra del formulario (la base no los guarda).
         const base = aPedido(data as FilaPedido, productos);
         const nuevo: Pedido = { ...base, registradoPor: datos.registradoPor };
@@ -178,11 +212,27 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
       },
 
       // DELETE lógico: anula un pedido pendiente SIN borrar la fila. La función
-      // anular_pedido de Supabase cambia el estado a "Anulado" y valida las reglas.
-      anularPedido: async (id) => {
-        const { error } = await supabase.rpc("anular_pedido", { p_pedido_id: id });
+      // anular_pedido de Supabase exige quién anula y el motivo, y cambia el estado a "Anulado".
+      anularPedido: async (id, anuladoPor, motivo) => {
+        const pedido = pedidos.find((p) => p.id === id);
+        const { error } = await supabase.rpc("anular_pedido", {
+          p_pedido_id: id,
+          p_anulado_por: anuladoPor,
+          p_motivo: motivo,
+        });
         if (error) throw new Error(error.message);
         setPedidos((prev) => prev.filter((p) => p.id !== id));
+        if (pedido) {
+          setAnulados((prev) => [
+            {
+              ...pedido,
+              anuladoPor: anuladoPor.trim(),
+              motivo: motivo.trim(),
+              anuladoEn: new Date().toISOString(),
+            },
+            ...prev,
+          ]);
+        }
       },
 
       // UPDATE con lógica de negocio: entrega el pedido en UNA sola operación.
@@ -204,7 +254,7 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
         }
       },
     }),
-    [pedidos, productos, productosVista, cargando],
+    [pedidos, productos, productosVista, anulados, cargando],
   );
 
   return <PedidosContext.Provider value={valor}>{children}</PedidosContext.Provider>;
