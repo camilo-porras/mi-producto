@@ -90,6 +90,7 @@ type Ctx = {
   agregarPedido: (p: Omit<Pedido, "id" | "entregado" | "fecha">) => Promise<Pedido>;
   marcarEntregado: (id: string) => Promise<void>;
   anulados: PedidoAnulado[];
+  crearProducto: (nombre: string, stockInicial: number) => Promise<void>;
   editarPedido: (
     id: string,
     datos: { cliente: string; cantidad: number; precioUnitario: number; formaPago: FormaPago },
@@ -213,6 +214,22 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
           prev.map((p) => (p.id === productoId ? { ...p, stock: nuevoStock } : p)),
         );
         return nuevoStock;
+      },
+
+      // CREATE (inventario): agrega un producto nuevo. La función crear_producto de
+      // Supabase valida (nombre no vacío y único, stock no negativo) y deja la entrada
+      // inicial en el historial de movimientos.
+      crearProducto: async (nombre, stockInicial) => {
+        const { data, error } = await supabase.rpc("crear_producto", {
+          p_nombre: nombre,
+          p_stock_inicial: stockInicial,
+        });
+        if (error) throw new Error(error.message);
+        setProductos((prev) =>
+          [...prev, { id: data as string, nombre: nombre.trim(), stock: stockInicial }].sort(
+            (a, b) => a.nombre.localeCompare(b.nombre),
+          ),
+        );
       },
 
       // UPDATE simple: corrige cliente, cantidad, precio y forma de pago de un pedido
