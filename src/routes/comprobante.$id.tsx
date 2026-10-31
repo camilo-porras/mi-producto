@@ -164,6 +164,16 @@ function Comprobante() {
                 {entregando && !confirmandoAnular ? "Entregando…" : "Marcar como entregado"}
               </button>
 
+              {!confirmandoAnular ? (
+                <Link
+                  to="/editar/$id"
+                  params={{ id: pedido.id }}
+                  className="flex h-14 w-full items-center justify-center rounded-2xl border-2 border-primary bg-card text-base font-bold text-primary"
+                >
+                  Editar pedido
+                </Link>
+              ) : null}
+
               {confirmandoAnular ? (
                 <div className="rounded-2xl border-2 border-destructive p-4">
                   <p className="text-center text-base font-bold">
