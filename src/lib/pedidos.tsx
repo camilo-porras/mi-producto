@@ -90,6 +90,10 @@ type Ctx = {
   agregarPedido: (p: Omit<Pedido, "id" | "entregado" | "fecha">) => Promise<Pedido>;
   marcarEntregado: (id: string) => Promise<void>;
   anulados: PedidoAnulado[];
+  editarPedido: (
+    id: string,
+    datos: { cliente: string; cantidad: number; precioUnitario: number; formaPago: FormaPago },
+  ) => Promise<void>;
   anularPedido: (id: string, anuladoPor: string, motivo: string) => Promise<void>;
   registrarMovimiento: (
     productoId: string,
@@ -209,6 +213,33 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
           prev.map((p) => (p.id === productoId ? { ...p, stock: nuevoStock } : p)),
         );
         return nuevoStock;
+      },
+
+      // UPDATE simple: corrige cliente, cantidad, precio y forma de pago de un pedido
+      // pendiente. La función editar_pedido de Supabase valida las reglas (incluido
+      // que la nueva cantidad alcance con el stock) y recalcula el monto.
+      editarPedido: async (id, datos) => {
+        const { error } = await supabase.rpc("editar_pedido", {
+          p_pedido_id: id,
+          p_cliente: datos.cliente,
+          p_cantidad: datos.cantidad,
+          p_medio_pago: datos.formaPago === "transferencia" ? "Transferencia" : "Efectivo",
+          p_monto: datos.cantidad * datos.precioUnitario,
+        });
+        if (error) throw new Error(error.message);
+        setPedidos((prev) =>
+          prev.map((p) =>
+            p.id === id
+              ? {
+                  ...p,
+                  cliente: datos.cliente.trim(),
+                  cantidad: datos.cantidad,
+                  precioUnitario: datos.precioUnitario,
+                  formaPago: datos.formaPago,
+                }
+              : p,
+          ),
+        );
       },
 
       // DELETE lógico: anula un pedido pendiente SIN borrar la fila. La función
