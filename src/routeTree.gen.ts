@@ -16,6 +16,7 @@ import { Route as InventarioRouteImport } from './routes/inventario'
 import { Route as NuevoRouteImport } from './routes/nuevo'
 import { Route as StockRouteImport } from './routes/stock'
 import { Route as ComprobanteIdRouteImport } from './routes/comprobante.$id'
+import { Route as EditarIdRouteImport } from './routes/editar.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -52,6 +53,11 @@ const ComprobanteIdRoute = ComprobanteIdRouteImport.update({
   path: '/comprobante/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EditarIdRoute = EditarIdRouteImport.update({
+  id: '/editar/$id',
+  path: '/editar/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -61,6 +67,7 @@ export interface FileRoutesByFullPath {
   '/nuevo': typeof NuevoRoute
   '/stock': typeof StockRoute
   '/comprobante/$id': typeof ComprobanteIdRoute
+  '/editar/$id': typeof EditarIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -70,6 +77,7 @@ export interface FileRoutesByTo {
   '/nuevo': typeof NuevoRoute
   '/stock': typeof StockRoute
   '/comprobante/$id': typeof ComprobanteIdRoute
+  '/editar/$id': typeof EditarIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -80,6 +88,7 @@ export interface FileRoutesById {
   '/nuevo': typeof NuevoRoute
   '/stock': typeof StockRoute
   '/comprobante/$id': typeof ComprobanteIdRoute
+  '/editar/$id': typeof EditarIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +100,7 @@ export interface FileRouteTypes {
     | '/nuevo'
     | '/stock'
     | '/comprobante/$id'
+    | '/editar/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
     | '/nuevo'
     | '/stock'
     | '/comprobante/$id'
+    | '/editar/$id'
   id:
     | '__root__'
     | '/'
@@ -109,6 +120,7 @@ export interface FileRouteTypes {
     | '/nuevo'
     | '/stock'
     | '/comprobante/$id'
+    | '/editar/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -119,6 +131,7 @@ export interface RootRouteChildren {
   NuevoRoute: typeof NuevoRoute
   StockRoute: typeof StockRoute
   ComprobanteIdRoute: typeof ComprobanteIdRoute
+  EditarIdRoute: typeof EditarIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -172,6 +185,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ComprobanteIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/editar/$id': {
+      id: '/editar/$id'
+      path: '/editar/$id'
+      fullPath: '/editar/$id'
+      preLoaderRoute: typeof EditarIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -183,6 +203,7 @@ const rootRouteChildren: RootRouteChildren = {
   NuevoRoute: NuevoRoute,
   StockRoute: StockRoute,
   ComprobanteIdRoute: ComprobanteIdRoute,
+  EditarIdRoute: EditarIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
