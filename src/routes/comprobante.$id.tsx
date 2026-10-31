@@ -26,6 +26,8 @@ function Comprobante() {
   const [entregando, setEntregando] = useState(false);
   const [errorEntrega, setErrorEntrega] = useState("");
   const [confirmandoAnular, setConfirmandoAnular] = useState(false);
+  const [anuladoPor, setAnuladoPor] = useState("");
+  const [motivo, setMotivo] = useState("");
 
   const entregar = async (pedidoId: string) => {
     setEntregando(true);
@@ -43,7 +45,7 @@ function Comprobante() {
     setEntregando(true);
     setErrorEntrega("");
     try {
-      await anularPedido(pedidoId);
+      await anularPedido(pedidoId, anuladoPor, motivo);
       navigate({ to: "/" });
     } catch (e) {
       setErrorEntrega(e instanceof Error ? e.message : "No se pudo anular, intenta de nuevo.");
@@ -167,10 +169,41 @@ function Comprobante() {
                   <p className="text-center text-base font-bold">
                     ¿Seguro que quieres anular este pedido?
                   </p>
+                  <p className="mt-3 text-sm font-bold text-muted-foreground">¿Quién anula?</p>
+                  <div className="mt-2 grid grid-cols-2 gap-3">
+                    {["Don Tauro", "Ayudante"].map((q) => (
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => setAnuladoPor(q)}
+                        className={`rounded-2xl border px-4 py-3 text-base font-bold ${
+                          anuladoPor === q
+                            ? "border-primary bg-accent text-accent-foreground"
+                            : "border-border bg-card text-muted-foreground"
+                        }`}
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                  <label
+                    className="mt-3 block text-sm font-bold text-muted-foreground"
+                    htmlFor="motivo"
+                  >
+                    Motivo
+                  </label>
+                  <input
+                    id="motivo"
+                    value={motivo}
+                    onChange={(e) => setMotivo(e.target.value)}
+                    maxLength={120}
+                    placeholder="Ej: el cliente canceló"
+                    className="mt-2 w-full rounded-2xl border border-border bg-card px-4 py-3 text-base outline-none focus:border-primary"
+                  />
                   <div className="mt-3 grid grid-cols-2 gap-3">
                     <button
                       onClick={() => anular(pedido.id)}
-                      disabled={entregando}
+                      disabled={entregando || !anuladoPor || !motivo.trim()}
                       className="h-14 rounded-2xl bg-destructive text-base font-bold text-destructive-foreground disabled:opacity-60"
                     >
                       Sí, anular

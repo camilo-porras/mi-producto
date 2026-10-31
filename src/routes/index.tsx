@@ -57,11 +57,14 @@ function Inicio() {
           </Link>
         ) : null}
 
-        <div className="mt-6 flex items-center justify-between">
+        <div className="mt-6">
           <h2 className="text-xl font-semibold">Pedidos del día</h2>
-          <div className="flex gap-4">
+          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
             <Link to="/inventario" className="text-sm font-semibold text-primary underline">
               Inventario
+            </Link>
+            <Link to="/anulados" className="text-sm font-semibold text-primary underline">
+              Anulados
             </Link>
             <Link to="/cierre" className="text-sm font-semibold text-primary underline">
               Cierre de caja

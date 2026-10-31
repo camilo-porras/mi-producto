@@ -47,6 +47,7 @@ function NuevoPedido() {
 
   const total = cantidad * precio;
   const productoActual = productos.find((p) => p.nombre === producto);
+  const sinStock = !!productoActual && cantidad > productoActual.disponible;
 
   useEffect(() => {
     const clave = "tauro-control-dispositivo";
@@ -113,8 +114,10 @@ function NuevoPedido() {
         formaPago,
         registradoPor,
       });
-    } catch {
-      setErrorGuardado("No pudimos guardar el pedido. Intenta de nuevo.");
+    } catch (e) {
+      setErrorGuardado(
+        e instanceof Error ? e.message : "No pudimos guardar el pedido. Intenta de nuevo.",
+      );
       setGuardando(false);
       return;
     }
@@ -259,7 +262,7 @@ function NuevoPedido() {
               >
                 Disponibles: {productoActual.disponible}
                 {cantidad > productoActual.disponible
-                  ? ` · pides ${cantidad}, no alcanzan`
+                  ? ` · pides ${cantidad}: no puedes tomar este pedido`
                   : productoActual.disponible <= STOCK_BAJO
                     ? " · stock bajo"
                     : ""}
@@ -360,7 +363,7 @@ function NuevoPedido() {
 
         <button
           type="submit"
-          disabled={guardando || !dispositivoId}
+          disabled={guardando || !dispositivoId || sinStock}
           className="superficie-cuero h-16 w-full rounded-2xl text-xl font-bold shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
         >
           {guardando ? "Guardando…" : "Guardar pedido"}
