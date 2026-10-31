@@ -60,7 +60,7 @@ function Inventario() {
           ← Volver al inventario
         </Link>
         <h1 className="mt-2 text-2xl font-semibold">Inventario</h1>
-        <p className="mt-1 text-sm text-accent">Registra entradas y salidas de producto</p>
+        <p className="mt-1 pr-24 text-sm text-accent">Registra entradas y salidas de producto</p>
       </header>
 
       <main className="space-y-4 px-5 py-6">

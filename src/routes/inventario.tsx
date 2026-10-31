@@ -21,14 +21,14 @@ function Inventario() {
   const porAgotarse = productos.filter((p) => p.disponible <= STOCK_BAJO).length;
 
   return (
-    <div className="mx-auto min-h-screen w-full max-w-md pb-32">
+    <div className="mx-auto min-h-screen w-full max-w-md pb-48">
       <header className="superficie-cuero relative rounded-b-4xl px-5 pb-8 pt-8">
         <MarcaTauro className="pointer-events-none absolute right-5 top-7 h-20 w-20 object-contain" />
         <Link to="/" className="text-sm text-accent">
           ← Volver a pedidos
         </Link>
         <h1 className="mt-2 text-2xl font-semibold">Inventario</h1>
-        <p className="mt-1 text-sm text-accent">Lo que realmente puedes ofrecer hoy</p>
+        <p className="mt-1 pr-24 text-sm text-accent">Lo que realmente puedes ofrecer hoy</p>
       </header>
 
       <main className="px-5 py-6">
@@ -81,12 +81,20 @@ function Inventario() {
       </main>
 
       <div className="fixed bottom-0 left-1/2 w-full max-w-md -translate-x-1/2 bg-gradient-to-t from-background via-background to-transparent p-5">
-        <Link
-          to="/stock"
-          className="superficie-cuero flex h-16 items-center justify-center rounded-2xl text-xl font-bold shadow-lg"
-        >
-          Registrar entrada o salida
-        </Link>
+        <div className="space-y-3">
+          <Link
+            to="/stock"
+            className="superficie-cuero flex h-16 items-center justify-center rounded-2xl text-xl font-bold shadow-lg"
+          >
+            Registrar entrada o salida
+          </Link>
+          <Link
+            to="/nuevo-producto"
+            className="flex h-14 items-center justify-center rounded-2xl border-2 border-primary bg-card text-lg font-bold text-primary"
+          >
+            + Agregar producto
+          </Link>
+        </div>
       </div>
     </div>
   );
