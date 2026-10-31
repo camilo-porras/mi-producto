@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AnuladosRouteImport } from './routes/anulados'
 import { Route as CierreRouteImport } from './routes/cierre'
 import { Route as InventarioRouteImport } from './routes/inventario'
 import { Route as NuevoRouteImport } from './routes/nuevo'
@@ -19,6 +20,11 @@ import { Route as ComprobanteIdRouteImport } from './routes/comprobante.$id'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnuladosRoute = AnuladosRouteImport.update({
+  id: '/anulados',
+  path: '/anulados',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CierreRoute = CierreRouteImport.update({
@@ -49,6 +55,7 @@ const ComprobanteIdRoute = ComprobanteIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/anulados': typeof AnuladosRoute
   '/cierre': typeof CierreRoute
   '/inventario': typeof InventarioRoute
   '/nuevo': typeof NuevoRoute
@@ -57,6 +64,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/anulados': typeof AnuladosRoute
   '/cierre': typeof CierreRoute
   '/inventario': typeof InventarioRoute
   '/nuevo': typeof NuevoRoute
@@ -66,6 +74,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/anulados': typeof AnuladosRoute
   '/cierre': typeof CierreRoute
   '/inventario': typeof InventarioRoute
   '/nuevo': typeof NuevoRoute
@@ -75,12 +84,26 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/cierre' | '/inventario' | '/nuevo' | '/stock' | '/comprobante/$id'
+    | '/'
+    | '/anulados'
+    | '/cierre'
+    | '/inventario'
+    | '/nuevo'
+    | '/stock'
+    | '/comprobante/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/cierre' | '/inventario' | '/nuevo' | '/stock' | '/comprobante/$id'
+  to:
+    | '/'
+    | '/anulados'
+    | '/cierre'
+    | '/inventario'
+    | '/nuevo'
+    | '/stock'
+    | '/comprobante/$id'
   id:
     | '__root__'
     | '/'
+    | '/anulados'
     | '/cierre'
     | '/inventario'
     | '/nuevo'
@@ -90,6 +113,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AnuladosRoute: typeof AnuladosRoute
   CierreRoute: typeof CierreRoute
   InventarioRoute: typeof InventarioRoute
   NuevoRoute: typeof NuevoRoute
@@ -104,6 +128,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/anulados': {
+      id: '/anulados'
+      path: '/anulados'
+      fullPath: '/anulados'
+      preLoaderRoute: typeof AnuladosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cierre': {
@@ -146,6 +177,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AnuladosRoute: AnuladosRoute,
   CierreRoute: CierreRoute,
   InventarioRoute: InventarioRoute,
   NuevoRoute: NuevoRoute,
