@@ -1,25 +1,69 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { supabase } from "@/lib/supabase";
 
 export type FormaPago = "efectivo" | "transferencia";
 
-export type Pedido = {
+// ---------------------------------------------------------------- Clientes
+// Cada cliente se identifica por su id interno (lo genera la base y nunca cambia).
+// Nombre, negocio, teléfono, dirección, etc. se pueden editar sin perder el historial.
+export type Cliente = {
   id: string;
-  cliente: string;
-  negocio?: string;
-  telefono?: string;
-  direccion?: string;
-  ciudad?: string;
-  departamento?: string;
+  nombre: string;
+  negocio: string;
+  telefono: string;
+  direccion: string;
+  ciudad: string;
+  departamento: string;
+};
+export type DatosCliente = Omit<Cliente, "id">;
+
+// ---------------------------------------------------------------- Pedidos
+export type LineaPedido = {
+  productoId: string;
   producto: string;
   cantidad: number;
   precioUnitario: number;
+};
+
+// Renglón tal como lo manejan los formularios (antes de guardarse).
+export type LineaForm = { productoId: string; cantidad: number; precioUnitario: number };
+
+export type Pedido = {
+  id: string;
+  clienteId: string;
+  cliente: string;
+  negocio: string;
+  telefono: string;
+  direccion: string;
+  ciudad: string;
+  departamento: string;
+  lineas: LineaPedido[];
+  total: number;
   formaPago: FormaPago;
   registradoPor: string;
   entregado: boolean;
   fecha: string;
 };
 
+export const unidadesDe = (p: Pick<Pedido, "lineas">) =>
+  p.lineas.reduce((s, l) => s + l.cantidad, 0);
+
+// Texto corto de lo que lleva el pedido: "2 × Billetera" o "3 productos · 7 unidades".
+export const resumenLineas = (p: Pick<Pedido, "lineas">) => {
+  const primera = p.lineas[0];
+  if (p.lineas.length === 1 && primera) return `${primera.cantidad} × ${primera.producto}`;
+  return `${p.lineas.length} productos · ${unidadesDe(p)} unidades`;
+};
+
+// ---------------------------------------------------------------- Productos
 export type Producto = { id: string; nombre: string; stock: number };
 
 // stock = unidades físicas en bodega. comprometido = unidades apartadas por pedidos
@@ -32,36 +76,73 @@ export const STOCK_BAJO = 5;
 export const formatoPesos = (valor: number) =>
   "$" + Math.round(valor).toLocaleString("es-CO", { maximumFractionDigits: 0 });
 
-// Fila tal como vive en la tabla "pedidos" de Supabase.
+// ---------------------------------------------------------------- Filas de la base
+type FilaItem = { producto_id: string; cantidad: number; precio_unitario: number | string };
+
 type FilaPedido = {
   id: string;
   created_at: string;
-  cliente: string;
-  producto_id: string;
-  cantidad: number;
+  cliente_id: string;
   estado: string;
   medio_pago: string | null;
-  monto: number | null;
+  monto: number | string | null;
   anulado_por: string | null;
   motivo_anulacion: string | null;
   anulado_at: string | null;
+  pedido_items: FilaItem[] | null;
+};
+
+type FilaCliente = {
+  id: string;
+  nombre: string;
+  negocio: string | null;
+  telefono: string | null;
+  direccion: string | null;
+  ciudad: string | null;
+  departamento: string | null;
 };
 
 const COLUMNAS_PEDIDO =
-  "id, created_at, cliente, producto_id, cantidad, estado, medio_pago, monto, anulado_por, motivo_anulacion, anulado_at";
+  "id, created_at, cliente_id, estado, medio_pago, monto, anulado_por, motivo_anulacion, anulado_at, pedido_items(producto_id, cantidad, precio_unitario)";
+const COLUMNAS_CLIENTE = "id, nombre, negocio, telefono, direccion, ciudad, departamento";
 
-// Convierte una fila de la base en el Pedido que usan las pantallas.
-// El precio unitario se calcula: monto (total) / cantidad.
-function aPedido(fila: FilaPedido, productos: Producto[]): Pedido {
-  const monto = Number(fila.monto ?? 0);
+const aCliente = (f: FilaCliente): Cliente => ({
+  id: f.id,
+  nombre: f.nombre,
+  negocio: f.negocio ?? "",
+  telefono: f.telefono ?? "",
+  direccion: f.direccion ?? "",
+  ciudad: f.ciudad ?? "",
+  departamento: f.departamento ?? "",
+});
+
+// Convierte una fila de la base en el Pedido que usan las pantallas. Los datos del
+// cliente se leen de la tabla clientes, así que si el cliente se edita, se ven al día.
+function aPedido(
+  fila: FilaPedido,
+  productos: Producto[],
+  clientes: Cliente[],
+  registrado: Record<string, string>,
+): Pedido {
+  const cli = clientes.find((c) => c.id === fila.cliente_id);
   return {
     id: fila.id,
-    cliente: fila.cliente,
-    producto: productos.find((p) => p.id === fila.producto_id)?.nombre ?? "Producto",
-    cantidad: fila.cantidad,
-    precioUnitario: fila.cantidad > 0 ? monto / fila.cantidad : 0,
+    clienteId: fila.cliente_id,
+    cliente: cli?.nombre ?? "Cliente",
+    negocio: cli?.negocio ?? "",
+    telefono: cli?.telefono ?? "",
+    direccion: cli?.direccion ?? "",
+    ciudad: cli?.ciudad ?? "",
+    departamento: cli?.departamento ?? "",
+    lineas: (fila.pedido_items ?? []).map((i) => ({
+      productoId: i.producto_id,
+      producto: productos.find((p) => p.id === i.producto_id)?.nombre ?? "Producto",
+      cantidad: i.cantidad,
+      precioUnitario: Number(i.precio_unitario),
+    })),
+    total: Number(fila.monto ?? 0),
     formaPago: fila.medio_pago?.toLowerCase() === "transferencia" ? "transferencia" : "efectivo",
-    registradoPor: "—", // la base no guarda quién registró (no está en la sección 7 del BRD)
+    registradoPor: registrado[fila.id] ?? "—", // la base no guarda quién registró
     entregado: fila.estado === "Entregado",
     fecha: fila.created_at,
   };
@@ -74,86 +155,107 @@ export type PedidoAnulado = Pedido & {
   anuladoEn: string;
 };
 
-function aAnulado(fila: FilaPedido, productos: Producto[]): PedidoAnulado {
-  return {
-    ...aPedido(fila, productos),
-    anuladoPor: fila.anulado_por ?? "—",
-    motivo: fila.motivo_anulacion ?? "—",
-    anuladoEn: fila.anulado_at ?? fila.created_at,
-  };
-}
+const itemsParaBase = (lineas: LineaForm[]) =>
+  lineas.map((l) => ({
+    producto_id: l.productoId,
+    cantidad: l.cantidad,
+    precio_unitario: l.precioUnitario,
+  }));
+
+const pagoParaBase = (f: FormaPago) => (f === "transferencia" ? "Transferencia" : "Efectivo");
+
+type DatosPedido = { clienteId: string; formaPago: FormaPago; lineas: LineaForm[] };
 
 type Ctx = {
   pedidos: Pedido[];
-  productos: ProductoVista[];
-  cargando: boolean;
-  agregarPedido: (p: Omit<Pedido, "id" | "entregado" | "fecha">) => Promise<Pedido>;
-  marcarEntregado: (id: string) => Promise<void>;
   anulados: PedidoAnulado[];
-  crearProducto: (nombre: string, stockInicial: number) => Promise<void>;
-  editarPedido: (
-    id: string,
-    datos: { cliente: string; cantidad: number; precioUnitario: number; formaPago: FormaPago },
-  ) => Promise<void>;
+  productos: ProductoVista[];
+  clientes: Cliente[];
+  cargando: boolean;
+  agregarPedido: (datos: DatosPedido & { registradoPor: string }) => Promise<string>;
+  editarPedido: (id: string, datos: DatosPedido) => Promise<void>;
+  marcarEntregado: (id: string) => Promise<void>;
   anularPedido: (id: string, anuladoPor: string, motivo: string) => Promise<void>;
+  crearProducto: (nombre: string, stockInicial: number) => Promise<void>;
   registrarMovimiento: (
     productoId: string,
     tipo: "entrada" | "salida",
     cantidad: number,
   ) => Promise<number>;
+  crearCliente: (datos: DatosCliente) => Promise<Cliente>;
+  editarCliente: (id: string, datos: DatosCliente) => Promise<void>;
 };
 
 const PedidosContext = createContext<Ctx | null>(null);
 
 export function PedidosProvider({ children }: { children: ReactNode }) {
-  const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
-  const [anulados, setAnulados] = useState<PedidoAnulado[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [filas, setFilas] = useState<FilaPedido[]>([]);
+  const [registrado, setRegistrado] = useState<Record<string, string>>({});
   const [cargando, setCargando] = useState(true);
 
-  // READ: al abrir la app se leen productos y pedidos desde Supabase.
+  // READ: lee productos, clientes y pedidos (con sus renglones) desde Supabase.
+  const cargar = useCallback(async () => {
+    const [prod, cli, ped] = await Promise.all([
+      supabase.from("productos").select("id, nombre, stock").order("nombre"),
+      supabase.from("clientes").select(COLUMNAS_CLIENTE).order("nombre"),
+      supabase.from("pedidos").select(COLUMNAS_PEDIDO).order("created_at", { ascending: false }),
+    ]);
+    if (prod.error || cli.error || ped.error) {
+      console.error("Error leyendo Supabase:", prod.error ?? cli.error ?? ped.error);
+      return;
+    }
+    setProductos(prod.data as Producto[]);
+    setClientes((cli.data as FilaCliente[]).map(aCliente));
+    setFilas(ped.data as unknown as FilaPedido[]);
+  }, []);
+
   useEffect(() => {
     let activo = true;
     (async () => {
-      const [prod, ped, anu] = await Promise.all([
-        supabase.from("productos").select("id, nombre, stock").order("nombre"),
-        supabase
-          .from("pedidos")
-          .select(COLUMNAS_PEDIDO)
-          .neq("estado", "Anulado") // los anulados siguen en la base, pero la app los ignora
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("pedidos")
-          .select(COLUMNAS_PEDIDO)
-          .eq("estado", "Anulado")
-          .order("anulado_at", { ascending: false }),
-      ]);
-      if (!activo) return;
-      if (prod.error || ped.error || anu.error) {
-        console.error("Error leyendo Supabase:", prod.error ?? ped.error ?? anu.error);
-      } else {
-        const lista = prod.data as Producto[];
-        setProductos(lista);
-        setPedidos((ped.data as FilaPedido[]).map((f) => aPedido(f, lista)));
-        setAnulados((anu.data as FilaPedido[]).map((f) => aAnulado(f, lista)));
-      }
-      setCargando(false);
+      await cargar();
+      if (activo) setCargando(false);
     })();
     return () => {
       activo = false;
     };
-  }, []);
+  }, [cargar]);
+
+  const pedidos = useMemo(
+    () =>
+      filas
+        .filter((f) => f.estado !== "Anulado") // los anulados siguen en la base, pero se ignoran aquí
+        .map((f) => aPedido(f, productos, clientes, registrado)),
+    [filas, productos, clientes, registrado],
+  );
+
+  const anulados = useMemo<PedidoAnulado[]>(
+    () =>
+      filas
+        .filter((f) => f.estado === "Anulado")
+        .sort((a, b) => (b.anulado_at ?? "").localeCompare(a.anulado_at ?? ""))
+        .map((f) => ({
+          ...aPedido(f, productos, clientes, registrado),
+          anuladoPor: f.anulado_por ?? "—",
+          motivo: f.motivo_anulacion ?? "—",
+          anuladoEn: f.anulado_at ?? f.created_at,
+        })),
+    [filas, productos, clientes, registrado],
+  );
 
   // Las unidades de un pedido pendiente quedan apartadas: siguen en bodega (el stock
   // solo baja al entregar), pero ya no están disponibles para otro cliente.
   const productosVista = useMemo<ProductoVista[]>(() => {
     const apartado = new Map<string, number>();
     for (const ped of pedidos) {
-      if (!ped.entregado)
-        apartado.set(ped.producto, (apartado.get(ped.producto) ?? 0) + ped.cantidad);
+      if (ped.entregado) continue;
+      for (const l of ped.lineas) {
+        apartado.set(l.productoId, (apartado.get(l.productoId) ?? 0) + l.cantidad);
+      }
     }
     return productos.map((p) => {
-      const comprometido = apartado.get(p.nombre) ?? 0;
+      const comprometido = apartado.get(p.id) ?? 0;
       return { ...p, comprometido, disponible: Math.max(p.stock - comprometido, 0) };
     });
   }, [productos, pedidos]);
@@ -161,47 +263,72 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
   const valor = useMemo<Ctx>(
     () => ({
       pedidos,
-      productos: productosVista,
       anulados,
+      productos: productosVista,
+      clientes,
       cargando,
 
-      // CREATE con lógica de negocio: crea el pedido solo si hay stock disponible.
+      // CREATE con lógica de negocio: un cliente, uno o varios productos, todo o nada.
+      // La función crear_pedido valida en la base que cada renglón tenga stock DISPONIBLE.
       agregarPedido: async (datos) => {
-        const prod = productos.find((p) => p.nombre === datos.producto);
-        if (!prod) throw new Error("Producto no encontrado");
-        // La función crear_pedido valida en la base que haya stock DISPONIBLE;
-        // si no alcanza, rechaza el pedido y el mensaje llega aquí como error.
-        const { data: nuevoId, error } = await supabase.rpc("crear_pedido", {
-          p_cliente: datos.cliente,
-          p_producto_id: prod.id,
-          p_cantidad: datos.cantidad,
-          p_medio_pago: datos.formaPago === "transferencia" ? "Transferencia" : "Efectivo",
-          p_monto: datos.cantidad * datos.precioUnitario,
+        const { data, error } = await supabase.rpc("crear_pedido", {
+          p_cliente_id: datos.clienteId,
+          p_medio_pago: pagoParaBase(datos.formaPago),
+          p_items: itemsParaBase(datos.lineas),
         });
         if (error) throw new Error(error.message);
-        const { data, error: errorLectura } = await supabase
-          .from("pedidos")
-          .select(COLUMNAS_PEDIDO)
-          .eq("id", nuevoId as string)
-          .single();
-        if (errorLectura || !data) {
-          throw new Error(errorLectura?.message ?? "No se pudo leer el pedido creado");
-        }
-        // Se conservan en pantalla los datos extra del formulario (la base no los guarda).
-        const base = aPedido(data as FilaPedido, productos);
-        const nuevo: Pedido = { ...base, registradoPor: datos.registradoPor };
-        if (datos.negocio) nuevo.negocio = datos.negocio;
-        if (datos.telefono) nuevo.telefono = datos.telefono;
-        if (datos.direccion) nuevo.direccion = datos.direccion;
-        if (datos.ciudad) nuevo.ciudad = datos.ciudad;
-        if (datos.departamento) nuevo.departamento = datos.departamento;
-        setPedidos((prev) => [nuevo, ...prev]);
-        return nuevo;
+        const id = data as string;
+        setRegistrado((prev) => ({ ...prev, [id]: datos.registradoPor }));
+        await cargar();
+        return id;
+      },
+
+      // UPDATE: cambia cliente, forma de pago y renglones de un pedido pendiente.
+      editarPedido: async (id, datos) => {
+        const { error } = await supabase.rpc("editar_pedido", {
+          p_pedido_id: id,
+          p_cliente_id: datos.clienteId,
+          p_medio_pago: pagoParaBase(datos.formaPago),
+          p_items: itemsParaBase(datos.lineas),
+        });
+        if (error) throw new Error(error.message);
+        await cargar();
+      },
+
+      // UPDATE con lógica de negocio: entrega TODOS los renglones o ninguno, descuenta
+      // el stock de cada producto y deja una salida por cada uno en el historial.
+      marcarEntregado: async (id) => {
+        const { error } = await supabase.rpc("entregar_pedido", { p_pedido_id: id });
+        if (error) throw new Error(error.message);
+        await cargar();
+      },
+
+      // DELETE lógico: anula un pedido pendiente SIN borrar la fila (queda quién y por qué).
+      anularPedido: async (id, anuladoPor, motivo) => {
+        const { error } = await supabase.rpc("anular_pedido", {
+          p_pedido_id: id,
+          p_anulado_por: anuladoPor,
+          p_motivo: motivo,
+        });
+        if (error) throw new Error(error.message);
+        await cargar();
+      },
+
+      // CREATE (inventario): agrega un producto nuevo.
+      crearProducto: async (nombre, stockInicial) => {
+        const { data, error } = await supabase.rpc("crear_producto", {
+          p_nombre: nombre,
+          p_stock_inicial: stockInicial,
+        });
+        if (error) throw new Error(error.message);
+        setProductos((prev) =>
+          [...prev, { id: data as string, nombre: nombre.trim(), stock: stockInicial }].sort(
+            (a, b) => a.nombre.localeCompare(b.nombre),
+          ),
+        );
       },
 
       // CREATE (inventario): registra una entrada o salida de producto.
-      // Las reglas (cantidad positiva, stock suficiente, todo o nada) viven en
-      // la función registrar_movimiento de Supabase. Devuelve el nuevo stock.
       registrarMovimiento: async (productoId, tipo, cantidad) => {
         const { data, error } = await supabase.rpc("registrar_movimiento", {
           p_producto_id: productoId,
@@ -216,93 +343,63 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
         return nuevoStock;
       },
 
-      // CREATE (inventario): agrega un producto nuevo. La función crear_producto de
-      // Supabase valida (nombre no vacío y único, stock no negativo) y deja la entrada
-      // inicial en el historial de movimientos.
-      crearProducto: async (nombre, stockInicial) => {
-        const { data, error } = await supabase.rpc("crear_producto", {
-          p_nombre: nombre,
-          p_stock_inicial: stockInicial,
+      // CREATE (clientes): registra un cliente nuevo. Su id lo genera la base.
+      crearCliente: async (datos) => {
+        const { data, error } = await supabase.rpc("crear_cliente", {
+          p_nombre: datos.nombre,
+          p_negocio: datos.negocio,
+          p_telefono: datos.telefono,
+          p_direccion: datos.direccion,
+          p_ciudad: datos.ciudad,
+          p_departamento: datos.departamento,
         });
         if (error) throw new Error(error.message);
-        setProductos((prev) =>
-          [...prev, { id: data as string, nombre: nombre.trim(), stock: stockInicial }].sort(
-            (a, b) => a.nombre.localeCompare(b.nombre),
-          ),
+        const nuevo: Cliente = {
+          id: data as string,
+          nombre: datos.nombre.trim(),
+          negocio: datos.negocio.trim(),
+          telefono: datos.telefono.trim(),
+          direccion: datos.direccion.trim(),
+          ciudad: datos.ciudad.trim(),
+          departamento: datos.departamento.trim(),
+        };
+        setClientes((prev) => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+        return nuevo;
+      },
+
+      // UPDATE (clientes): el id no cambia, así sus pedidos anteriores siguen ligados a él
+      // aunque cambie de teléfono, de negocio, de dirección o de dueño.
+      editarCliente: async (id, datos) => {
+        const { error } = await supabase.rpc("editar_cliente", {
+          p_id: id,
+          p_nombre: datos.nombre,
+          p_negocio: datos.negocio,
+          p_telefono: datos.telefono,
+          p_direccion: datos.direccion,
+          p_ciudad: datos.ciudad,
+          p_departamento: datos.departamento,
+        });
+        if (error) throw new Error(error.message);
+        setClientes((prev) =>
+          prev
+            .map((c) =>
+              c.id === id
+                ? {
+                    id,
+                    nombre: datos.nombre.trim(),
+                    negocio: datos.negocio.trim(),
+                    telefono: datos.telefono.trim(),
+                    direccion: datos.direccion.trim(),
+                    ciudad: datos.ciudad.trim(),
+                    departamento: datos.departamento.trim(),
+                  }
+                : c,
+            )
+            .sort((a, b) => a.nombre.localeCompare(b.nombre)),
         );
-      },
-
-      // UPDATE simple: corrige cliente, cantidad, precio y forma de pago de un pedido
-      // pendiente. La función editar_pedido de Supabase valida las reglas (incluido
-      // que la nueva cantidad alcance con el stock) y recalcula el monto.
-      editarPedido: async (id, datos) => {
-        const { error } = await supabase.rpc("editar_pedido", {
-          p_pedido_id: id,
-          p_cliente: datos.cliente,
-          p_cantidad: datos.cantidad,
-          p_medio_pago: datos.formaPago === "transferencia" ? "Transferencia" : "Efectivo",
-          p_monto: datos.cantidad * datos.precioUnitario,
-        });
-        if (error) throw new Error(error.message);
-        setPedidos((prev) =>
-          prev.map((p) =>
-            p.id === id
-              ? {
-                  ...p,
-                  cliente: datos.cliente.trim(),
-                  cantidad: datos.cantidad,
-                  precioUnitario: datos.precioUnitario,
-                  formaPago: datos.formaPago,
-                }
-              : p,
-          ),
-        );
-      },
-
-      // DELETE lógico: anula un pedido pendiente SIN borrar la fila. La función
-      // anular_pedido de Supabase exige quién anula y el motivo, y cambia el estado a "Anulado".
-      anularPedido: async (id, anuladoPor, motivo) => {
-        const pedido = pedidos.find((p) => p.id === id);
-        const { error } = await supabase.rpc("anular_pedido", {
-          p_pedido_id: id,
-          p_anulado_por: anuladoPor,
-          p_motivo: motivo,
-        });
-        if (error) throw new Error(error.message);
-        setPedidos((prev) => prev.filter((p) => p.id !== id));
-        if (pedido) {
-          setAnulados((prev) => [
-            {
-              ...pedido,
-              anuladoPor: anuladoPor.trim(),
-              motivo: motivo.trim(),
-              anuladoEn: new Date().toISOString(),
-            },
-            ...prev,
-          ]);
-        }
-      },
-
-      // UPDATE con lógica de negocio: entrega el pedido en UNA sola operación.
-      // La función entregar_pedido de Supabase valida (pedido pendiente, stock
-      // suficiente), descuenta el stock, marca el pedido y guarda la salida.
-      // Si algo falla no se guarda nada y el mensaje llega aquí como error.
-      marcarEntregado: async (id) => {
-        const pedido = pedidos.find((p) => p.id === id);
-        if (!pedido || pedido.entregado) return;
-        const { data, error } = await supabase.rpc("entregar_pedido", { p_pedido_id: id });
-        if (error) throw new Error(error.message);
-        const nuevoStock = Number(data);
-        const prod = productos.find((p) => p.nombre === pedido.producto);
-        setPedidos((prev) => prev.map((p) => (p.id === id ? { ...p, entregado: true } : p)));
-        if (prod) {
-          setProductos((prev) =>
-            prev.map((p) => (p.id === prod.id ? { ...p, stock: nuevoStock } : p)),
-          );
-        }
       },
     }),
-    [pedidos, productos, productosVista, anulados, cargando],
+    [pedidos, anulados, productosVista, clientes, cargando, cargar],
   );
 
   return <PedidosContext.Provider value={valor}>{children}</PedidosContext.Provider>;
