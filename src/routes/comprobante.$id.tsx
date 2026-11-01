@@ -65,13 +65,13 @@ function Comprobante() {
     );
   }
 
-  const total = pedido.cantidad * pedido.precioUnitario;
+  const total = pedido.total;
   const fecha = new Date(pedido.fecha).toLocaleString("es-CO", {
     dateStyle: "medium",
     timeStyle: "short",
   });
 
-  const texto = `*Mano Facturas Tauro*%0AComprobante #${pedido.id.slice(-4)}%0ACliente: ${pedido.cliente}%0A${pedido.cantidad} x ${pedido.producto}%0ATotal: ${formatoPesos(total)}%0APago: ${pedido.formaPago}%0A¡Gracias por su compra!`;
+  const texto = `*Mano Facturas Tauro*%0AComprobante #${pedido.id.slice(-4)}%0ACliente: ${pedido.cliente}%0A${pedido.lineas.map((l) => `${l.cantidad} x ${l.producto}`).join("%0A")}%0ATotal: ${formatoPesos(total)}%0APago: ${pedido.formaPago}%0A¡Gracias por su compra!`;
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-md pb-10">
@@ -100,17 +100,22 @@ function Comprobante() {
               <dt className="text-muted-foreground">Cliente</dt>
               <dd className="font-semibold">{pedido.cliente}</dd>
             </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-muted-foreground">Producto</dt>
-              <dd className="text-right font-semibold">{pedido.producto}</dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-muted-foreground">Cantidad</dt>
-              <dd className="font-semibold">{pedido.cantidad}</dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-muted-foreground">Precio unitario</dt>
-              <dd className="font-semibold">{formatoPesos(pedido.precioUnitario)}</dd>
+            <div>
+              <dt className="mb-2 text-muted-foreground">Productos</dt>
+              <dd>
+                <ul className="space-y-2">
+                  {pedido.lineas.map((l) => (
+                    <li key={l.productoId} className="flex justify-between gap-3">
+                      <span className="font-semibold">
+                        {l.cantidad} × {l.producto}
+                      </span>
+                      <span className="shrink-0 text-muted-foreground">
+                        {formatoPesos(l.cantidad * l.precioUnitario)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </dd>
             </div>
             <div className="flex justify-between gap-3">
               <dt className="text-muted-foreground">Forma de pago</dt>

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { formatoPesos, usePedidos } from "@/lib/pedidos";
+import { formatoPesos, usePedidos, resumenLineas } from "@/lib/pedidos";
 import { MarcaTauro } from "@/components/MarcaTauro";
 
 export const Route = createFileRoute("/cierre")({
@@ -20,8 +20,7 @@ export const Route = createFileRoute("/cierre")({
 
 function Cierre() {
   const { pedidos } = usePedidos();
-  const total = (lista: typeof pedidos) =>
-    lista.reduce((s, p) => s + p.cantidad * p.precioUnitario, 0);
+  const total = (lista: typeof pedidos) => lista.reduce((s, p) => s + p.total, 0);
 
   const entregados = pedidos.filter((p) => p.entregado);
   const pendientes = pedidos.filter((p) => !p.entregado);
@@ -73,11 +72,9 @@ function Cierre() {
               pendientes.map((p) => (
                 <li key={p.id} className="flex justify-between gap-3">
                   <span className="truncate">
-                    {p.cliente} · {p.producto}
+                    {p.cliente} · {resumenLineas(p)}
                   </span>
-                  <span className="font-semibold">
-                    {formatoPesos(p.cantidad * p.precioUnitario)}
-                  </span>
+                  <span className="font-semibold">{formatoPesos(p.total)}</span>
                 </li>
               ))
             )}

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { formatoPesos, STOCK_BAJO, usePedidos } from "@/lib/pedidos";
+import { formatoPesos, resumenLineas, STOCK_BAJO, usePedidos } from "@/lib/pedidos";
 import { MarcaTauro } from "@/components/MarcaTauro";
 
 export const Route = createFileRoute("/")({
@@ -26,7 +26,7 @@ function Inicio() {
   const porAgotarse = productos.filter((p) => p.disponible <= STOCK_BAJO).length;
   const ordenados = [...pedidos].sort((a, b) => Number(a.entregado) - Number(b.entregado));
   const pendientes = pedidos.filter((p) => !p.entregado);
-  const totalPendiente = pendientes.reduce((s, p) => s + p.cantidad * p.precioUnitario, 0);
+  const totalPendiente = pendientes.reduce((s, p) => s + p.total, 0);
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-md pb-32">
@@ -63,6 +63,9 @@ function Inicio() {
             <Link to="/inventario" className="text-sm font-semibold text-primary underline">
               Inventario
             </Link>
+            <Link to="/clientes" className="text-sm font-semibold text-primary underline">
+              Clientes
+            </Link>
             <Link to="/anulados" className="text-sm font-semibold text-primary underline">
               Anulados
             </Link>
@@ -74,7 +77,7 @@ function Inicio() {
 
         <ul className="mt-4 space-y-3">
           {ordenados.map((p) => {
-            const totalPedido = p.cantidad * p.precioUnitario;
+            const totalPedido = p.total;
             const esPendienteAlto = !p.entregado && totalPedido > 50000;
 
             return (
@@ -86,9 +89,7 @@ function Inicio() {
                 >
                   <div className="min-w-0">
                     <p className="truncate text-lg font-semibold">{p.cliente}</p>
-                    <p className="truncate text-sm text-muted-foreground">
-                      {p.cantidad} × {p.producto}
-                    </p>
+                    <p className="truncate text-sm text-muted-foreground">{resumenLineas(p)}</p>
                     <span
                       className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-bold ${
                         p.entregado

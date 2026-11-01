@@ -1,6 +1,8 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { formatoPesos, STOCK_BAJO, usePedidos, type FormaPago } from "@/lib/pedidos";
+import { formatoPesos, usePedidos, type FormaPago, type LineaForm } from "@/lib/pedidos";
+import { SelectorCliente } from "@/components/SelectorCliente";
+import { LineasPedido, lineasValidas, totalDe } from "@/components/LineasPedido";
 import { MarcaTauro } from "@/components/MarcaTauro";
 
 export const Route = createFileRoute("/editar/$id")({
@@ -14,8 +16,6 @@ export const Route = createFileRoute("/editar/$id")({
 });
 
 const etiqueta = "block text-sm font-bold text-muted-foreground mb-2";
-const campo =
-  "w-full rounded-2xl border border-border bg-card px-4 py-4 text-lg outline-none focus:border-primary";
 
 function EditarPedido() {
   const { id } = Route.useParams();
@@ -23,9 +23,8 @@ function EditarPedido() {
   const navigate = useNavigate();
   const pedido = pedidos.find((p) => p.id === id);
 
-  const [cliente, setCliente] = useState("");
-  const [cantidad, setCantidad] = useState(1);
-  const [precio, setPrecio] = useState(0);
+  const [clienteId, setClienteId] = useState("");
+  const [lineas, setLineas] = useState<LineaForm[]>([]);
   const [formaPago, setFormaPago] = useState<FormaPago>("efectivo");
   const [cargado, setCargado] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -34,13 +33,25 @@ function EditarPedido() {
   // Precarga los datos ACTUALES del pedido (una sola vez, cuando ya cargó).
   useEffect(() => {
     if (pedido && !cargado) {
-      setCliente(pedido.cliente);
-      setCantidad(pedido.cantidad);
-      setPrecio(pedido.precioUnitario);
+      setClienteId(pedido.clienteId);
       setFormaPago(pedido.formaPago);
+      setLineas(
+        pedido.lineas.map((l) => ({
+          productoId: l.productoId,
+          cantidad: l.cantidad,
+          precioUnitario: l.precioUnitario,
+        })),
+      );
       setCargado(true);
     }
   }, [pedido, cargado]);
+
+  // Las unidades que este pedido ya tiene apartadas no cuentan contra él mismo.
+  const propias = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const l of pedido?.lineas ?? []) m[l.productoId] = l.cantidad;
+    return m;
+  }, [pedido]);
 
   const encabezado = (
     <header className="superficie-cuero relative rounded-b-4xl px-5 pb-7 pt-8">
@@ -52,7 +63,7 @@ function EditarPedido() {
     </header>
   );
 
-  if (cargando) {
+  if (cargando || (pedido && !cargado)) {
     return (
       <div className="mx-auto min-h-screen w-full max-w-md pb-10">
         {encabezado}
@@ -72,19 +83,16 @@ function EditarPedido() {
     );
   }
 
-  // Lo máximo que se puede pedir: lo disponible + las unidades de ESTE pedido.
-  const prod = productos.find((p) => p.nombre === pedido.producto);
-  const maximo = prod ? prod.disponible + pedido.cantidad : 0;
-  const sinStock = cantidad > maximo;
-  const total = cantidad * precio;
+  const total = totalDe(lineas);
+  const valido = !!clienteId && lineasValidas(lineas, productos, propias);
 
   const guardar = async (e: FormEvent) => {
     e.preventDefault();
-    if (!cliente.trim() || sinStock) return;
+    if (!valido) return;
     setGuardando(true);
     setError("");
     try {
-      await editarPedido(pedido.id, { cliente, cantidad, precioUnitario: precio, formaPago });
+      await editarPedido(pedido.id, { clienteId, formaPago, lineas });
       navigate({ to: "/comprobante/$id", params: { id: pedido.id } });
     } catch (err) {
       setError(err instanceof Error ? err.message : "No pudimos guardar los cambios.");
@@ -97,66 +105,14 @@ function EditarPedido() {
       {encabezado}
 
       <form onSubmit={guardar} className="space-y-5 px-5 py-6">
-        <div className="rounded-2xl bg-muted px-4 py-3 text-sm">
-          <span className="font-bold">Producto: </span>
-          {pedido.producto}
-          <p className="mt-1 text-xs text-muted-foreground">
-            Para cambiar el producto, anula el pedido y crea uno nuevo.
-          </p>
-        </div>
+        <SelectorCliente clienteId={clienteId} onChange={setClienteId} />
 
-        <div>
-          <label className={etiqueta} htmlFor="cliente">
-            Nombre del cliente
-          </label>
-          <input
-            id="cliente"
-            className={campo}
-            value={cliente}
-            onChange={(e) => setCliente(e.target.value)}
-          />
-        </div>
-
-        <div>
-          <label className={etiqueta} htmlFor="cantidad">
-            Cantidad
-          </label>
-          <input
-            id="cantidad"
-            type="number"
-            min={1}
-            className={campo}
-            value={cantidad}
-            onChange={(e) => setCantidad(Math.max(1, Number(e.target.value)))}
-          />
-          <p
-            className={`mt-2 text-sm font-bold ${
-              sinStock ? "text-destructive" : "text-muted-foreground"
-            }`}
-          >
-            Puedes pedir hasta: {maximo}
-            {sinStock
-              ? ` · pides ${cantidad}: no puedes guardar este cambio`
-              : maximo <= STOCK_BAJO
-                ? " · stock bajo"
-                : ""}
-          </p>
-        </div>
-
-        <div>
-          <label className={etiqueta} htmlFor="precio">
-            Precio unitario
-          </label>
-          <input
-            id="precio"
-            type="number"
-            min={0}
-            step={1000}
-            className={campo}
-            value={precio}
-            onChange={(e) => setPrecio(Math.max(0, Number(e.target.value)))}
-          />
-        </div>
+        <LineasPedido
+          lineas={lineas}
+          onChange={setLineas}
+          productos={productos}
+          propias={propias}
+        />
 
         <div>
           <span className={etiqueta}>Forma de pago</span>
@@ -194,7 +150,7 @@ function EditarPedido() {
 
         <button
           type="submit"
-          disabled={guardando || sinStock || !cliente.trim()}
+          disabled={guardando || !valido}
           className="superficie-cuero h-16 w-full rounded-2xl text-xl font-bold shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
         >
           {guardando ? "Guardando…" : "Guardar cambios"}

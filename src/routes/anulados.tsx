@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { formatoPesos, usePedidos } from "@/lib/pedidos";
+import { formatoPesos, resumenLineas, usePedidos } from "@/lib/pedidos";
 import { MarcaTauro } from "@/components/MarcaTauro";
 
 export const Route = createFileRoute("/anulados")({
@@ -51,12 +51,10 @@ function Anulados() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-lg font-semibold">{a.cliente}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {a.cantidad} × {a.producto}
-                    </p>
+                    <p className="text-sm text-muted-foreground">{resumenLineas(a)}</p>
                   </div>
                   <p className="shrink-0 text-lg font-bold text-muted-foreground line-through">
-                    {formatoPesos(a.cantidad * a.precioUnitario)}
+                    {formatoPesos(a.total)}
                   </p>
                 </div>
                 <div className="mt-3 space-y-1 border-t border-border pt-3 text-sm">

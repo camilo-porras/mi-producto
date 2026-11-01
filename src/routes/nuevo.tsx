@@ -1,8 +1,8 @@
+import { useEffect, useState, type FormEvent } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
-import { formatoPesos, STOCK_BAJO, usePedidos, type FormaPago } from "@/lib/pedidos";
-import { guardarCliente, listarClientes, type FichaCliente } from "@/lib/clientes.functions";
+import { formatoPesos, usePedidos, type FormaPago, type LineaForm } from "@/lib/pedidos";
+import { SelectorCliente } from "@/components/SelectorCliente";
+import { LineasPedido, lineaNueva, lineasValidas, totalDe } from "@/components/LineasPedido";
 import { MarcaTauro } from "@/components/MarcaTauro";
 
 export const Route = createFileRoute("/nuevo")({
@@ -11,7 +11,7 @@ export const Route = createFileRoute("/nuevo")({
       { title: "Nuevo pedido | Tauro Control" },
       {
         name: "description",
-        content: "Registra un pedido nuevo de billeteras o cinturones con su forma de pago.",
+        content: "Registra un pedido nuevo con uno o varios productos y su forma de pago.",
       },
       { property: "og:title", content: "Nuevo pedido | Tauro Control" },
       { property: "og:description", content: "Registra un pedido nuevo en Tauro Control." },
@@ -21,107 +21,42 @@ export const Route = createFileRoute("/nuevo")({
 });
 
 const etiqueta = "block text-sm font-bold text-muted-foreground mb-2";
-const campo =
-  "w-full rounded-2xl border border-border bg-card px-4 py-4 text-lg outline-none focus:border-primary";
 
 function NuevoPedido() {
   const { agregarPedido, productos } = usePedidos();
   const navigate = useNavigate();
-  const consultarClientes = useServerFn(listarClientes);
-  const guardarFicha = useServerFn(guardarCliente);
-  const [cliente, setCliente] = useState("");
-  const [negocio, setNegocio] = useState("");
-  const [telefono, setTelefono] = useState("");
-  const [direccion, setDireccion] = useState("");
-  const [ciudad, setCiudad] = useState("");
-  const [departamento, setDepartamento] = useState("");
-  const [clientes, setClientes] = useState<FichaCliente[]>([]);
-  const [dispositivoId, setDispositivoId] = useState("");
-  const [guardando, setGuardando] = useState(false);
-  const [errorGuardado, setErrorGuardado] = useState("");
-  const [producto, setProducto] = useState<string>("");
-  const [cantidad, setCantidad] = useState(1);
-  const [precio, setPrecio] = useState(45000);
+  const [clienteId, setClienteId] = useState("");
+  const [lineas, setLineas] = useState<LineaForm[]>([]);
   const [formaPago, setFormaPago] = useState<FormaPago>("efectivo");
   const [registradoPor, setRegistradoPor] = useState("Don Tauro");
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState("");
 
-  const total = cantidad * precio;
-  const productoActual = productos.find((p) => p.nombre === producto);
-  const sinStock = !!productoActual && cantidad > productoActual.disponible;
-
+  // Cuando cargan los productos, arranca con el primer renglón
   useEffect(() => {
-    const clave = "tauro-control-dispositivo";
-    const existente = localStorage.getItem(clave);
-    const id = existente ?? crypto.randomUUID();
-    if (!existente) localStorage.setItem(clave, id);
-    setDispositivoId(id);
-    consultarClientes({ data: { dispositivoId: id } })
-      .then(setClientes)
-      .catch(() => setErrorGuardado("No pudimos cargar los clientes guardados."));
-  }, [consultarClientes]);
-
-  useEffect(() => {
-    if (!producto && productos[0]) setProducto(productos[0].nombre);
-  }, [productos, producto]);
-
-  const completarCliente = (nombre: string) => {
-    setCliente(nombre);
-    const normalizado = nombre.trim().toLocaleLowerCase("es-CO");
-    const encontrado = clientes.find(
-      (item) => item.nombre.trim().toLocaleLowerCase("es-CO") === normalizado,
-    );
-    if (!encontrado) return;
-    setNegocio(encontrado.negocio);
-    setTelefono(encontrado.telefono);
-    setDireccion(encontrado.direccion);
-    setCiudad(encontrado.ciudad);
-    setDepartamento(encontrado.departamento);
-  };
-
-  const guardar = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!dispositivoId) return;
-    setGuardando(true);
-    setErrorGuardado("");
-    const ficha = {
-      nombre: cliente.trim(),
-      negocio: negocio.trim(),
-      telefono: telefono.trim(),
-      direccion: direccion.trim(),
-      ciudad: ciudad.trim(),
-      departamento: departamento.trim(),
-    };
-
-    // La ficha del cliente es opcional: si falla, el pedido igual se guarda.
-    try {
-      await guardarFicha({ data: { dispositivoId, ...ficha } });
-    } catch {
-      console.warn("No se pudo guardar la ficha del cliente");
+    if (lineas.length === 0 && productos.length > 0) {
+      const primera = lineaNueva(productos, []);
+      if (primera) setLineas([primera]);
     }
+  }, [productos, lineas.length]);
 
-    let nuevo;
+  const total = totalDe(lineas);
+  const valido = !!clienteId && lineasValidas(lineas, productos);
+
+  const guardar = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!valido) return;
+    setGuardando(true);
+    setError("");
     try {
-      nuevo = await agregarPedido({
-        cliente: ficha.nombre,
-        negocio: ficha.negocio,
-        telefono: ficha.telefono,
-        direccion: ficha.direccion,
-        ciudad: ficha.ciudad,
-        departamento: ficha.departamento,
-        producto,
-        cantidad,
-        precioUnitario: precio,
-        formaPago,
-        registradoPor,
-      });
-    } catch (e) {
-      setErrorGuardado(
-        e instanceof Error ? e.message : "No pudimos guardar el pedido. Intenta de nuevo.",
+      const id = await agregarPedido({ clienteId, formaPago, registradoPor, lineas });
+      navigate({ to: "/comprobante/$id", params: { id } });
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "No pudimos guardar el pedido. Intenta de nuevo.",
       );
       setGuardando(false);
-      return;
     }
-    navigate({ to: "/comprobante/$id", params: { id: nuevo.id } });
   };
 
   return (
@@ -135,177 +70,9 @@ function NuevoPedido() {
       </header>
 
       <form onSubmit={guardar} className="space-y-5 px-5 py-6">
-        <div>
-          <label className={etiqueta} htmlFor="cliente">
-            Nombre del cliente
-          </label>
-          <input
-            id="cliente"
-            className={campo}
-            value={cliente}
-            onChange={(e) => completarCliente(e.target.value)}
-            placeholder="Ej: Doña Luz"
-            list="clientes-guardados"
-            autoComplete="name"
-            required
-          />
-          <datalist id="clientes-guardados">
-            {clientes.map((item) => (
-              <option key={item.nombre} value={item.nombre}>
-                {item.negocio || item.telefono}
-              </option>
-            ))}
-          </datalist>
-        </div>
+        <SelectorCliente clienteId={clienteId} onChange={setClienteId} />
 
-        <div>
-          <label className={etiqueta} htmlFor="negocio">
-            Nombre del local o negocio <span className="font-normal">(opcional)</span>
-          </label>
-          <input
-            id="negocio"
-            className={campo}
-            value={negocio}
-            onChange={(e) => setNegocio(e.target.value)}
-            placeholder="Ej: Almacén La Esquina"
-            autoComplete="organization"
-          />
-        </div>
-
-        <div>
-          <label className={etiqueta} htmlFor="telefono">
-            Número de teléfono
-          </label>
-          <input
-            id="telefono"
-            type="tel"
-            inputMode="tel"
-            className={campo}
-            value={telefono}
-            onChange={(e) => setTelefono(e.target.value)}
-            placeholder="Ej: 300 123 4567"
-            autoComplete="tel"
-            required
-          />
-        </div>
-
-        <div>
-          <label className={etiqueta} htmlFor="direccion">
-            Dirección
-          </label>
-          <input
-            id="direccion"
-            className={campo}
-            value={direccion}
-            onChange={(e) => setDireccion(e.target.value)}
-            placeholder="Ej: Calle 10 # 5-20"
-            autoComplete="street-address"
-            required
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className={etiqueta} htmlFor="ciudad">
-              Ciudad
-            </label>
-            <input
-              id="ciudad"
-              className={campo}
-              value={ciudad}
-              onChange={(e) => setCiudad(e.target.value)}
-              placeholder="Ej: Bogotá"
-              autoComplete="address-level2"
-              required
-            />
-          </div>
-          <div>
-            <label className={etiqueta} htmlFor="departamento">
-              Departamento
-            </label>
-            <input
-              id="departamento"
-              className={campo}
-              value={departamento}
-              onChange={(e) => setDepartamento(e.target.value)}
-              placeholder="Ej: Cundinamarca"
-              autoComplete="address-level1"
-              required
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className={etiqueta} htmlFor="producto">
-            Producto
-          </label>
-          <select
-            id="producto"
-            className={campo}
-            value={producto}
-            onChange={(e) => setProducto(e.target.value)}
-          >
-            {productos.map((p) => (
-              <option key={p.id} value={p.nombre}>
-                {p.nombre}
-              </option>
-            ))}
-          </select>
-          {productoActual ? (
-            <div className="mt-2">
-              <p
-                className={`text-sm font-bold ${
-                  cantidad > productoActual.disponible
-                    ? "text-destructive"
-                    : "text-muted-foreground"
-                }`}
-              >
-                Disponibles: {productoActual.disponible}
-                {cantidad > productoActual.disponible
-                  ? ` · pides ${cantidad}: no puedes tomar este pedido`
-                  : productoActual.disponible <= STOCK_BAJO
-                    ? " · stock bajo"
-                    : ""}
-              </p>
-              {productoActual.comprometido > 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  {productoActual.stock} en bodega · {productoActual.comprometido} apartado
-                  {productoActual.comprometido === 1 ? "" : "s"} por pedidos pendientes
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className={etiqueta} htmlFor="cantidad">
-              Cantidad
-            </label>
-            <input
-              id="cantidad"
-              type="number"
-              min={1}
-              className={campo}
-              value={cantidad}
-              onChange={(e) => setCantidad(Math.max(1, Number(e.target.value)))}
-            />
-          </div>
-          <div>
-            <label className={etiqueta} htmlFor="precio">
-              Precio unitario
-            </label>
-            <input
-              id="precio"
-              type="number"
-              min={0}
-              step={1000}
-              className={campo}
-              value={precio}
-              onChange={(e) => setPrecio(Math.max(0, Number(e.target.value)))}
-            />
-          </div>
-        </div>
+        <LineasPedido lineas={lineas} onChange={setLineas} productos={productos} />
 
         <div>
           <span className={etiqueta}>Forma de pago</span>
@@ -352,18 +119,24 @@ function NuevoPedido() {
           <span className="text-3xl font-bold text-primary">{formatoPesos(total)}</span>
         </div>
 
-        {errorGuardado ? (
+        {!clienteId ? (
+          <p className="text-sm font-bold text-muted-foreground">
+            Elige o crea un cliente para guardar el pedido.
+          </p>
+        ) : null}
+
+        {error ? (
           <p
             role="alert"
             className="rounded-2xl bg-destructive/10 px-4 py-3 text-sm font-bold text-destructive"
           >
-            {errorGuardado}
+            {error}
           </p>
         ) : null}
 
         <button
           type="submit"
-          disabled={guardando || !dispositivoId || sinStock}
+          disabled={guardando || !valido}
           className="superficie-cuero h-16 w-full rounded-2xl text-xl font-bold shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
         >
           {guardando ? "Guardando…" : "Guardar pedido"}
