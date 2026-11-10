@@ -50,6 +50,8 @@ export type Pedido = {
   formaPago: FormaPago;
   registradoPor: string;
   entregado: boolean;
+  // Solicitud de un cliente que el personal todavía no acepta (no aparta stock).
+  solicitado: boolean;
   fecha: string;
 };
 
@@ -144,6 +146,7 @@ function aPedido(
     formaPago: fila.medio_pago?.toLowerCase() === "transferencia" ? "transferencia" : "efectivo",
     registradoPor: registrado[fila.id] ?? "—", // la base no guarda quién registró
     entregado: fila.estado === "Entregado",
+    solicitado: fila.estado === "Solicitado",
     fecha: fila.created_at,
   };
 }
@@ -175,6 +178,7 @@ type Ctx = {
   agregarPedido: (datos: DatosPedido & { registradoPor: string }) => Promise<string>;
   editarPedido: (id: string, datos: DatosPedido) => Promise<void>;
   marcarEntregado: (id: string) => Promise<void>;
+  aceptarSolicitud: (id: string) => Promise<void>;
   anularPedido: (id: string, anuladoPor: string, motivo: string) => Promise<void>;
   crearProducto: (nombre: string, stockInicial: number) => Promise<void>;
   registrarMovimiento: (
@@ -249,7 +253,7 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
   const productosVista = useMemo<ProductoVista[]>(() => {
     const apartado = new Map<string, number>();
     for (const ped of pedidos) {
-      if (ped.entregado) continue;
+      if (ped.entregado || ped.solicitado) continue;
       for (const l of ped.lineas) {
         apartado.set(l.productoId, (apartado.get(l.productoId) ?? 0) + l.cantidad);
       }
@@ -299,6 +303,14 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
       // el stock de cada producto y deja una salida por cada uno en el historial.
       marcarEntregado: async (id) => {
         const { error } = await supabase.rpc("entregar_pedido", { p_pedido_id: id });
+        if (error) throw new Error(error.message);
+        await cargar();
+      },
+
+      // Acepta la solicitud de un cliente: pasa a Pendiente y aparta el stock. Antes se le
+      // deben poner los precios con «Editar pedido».
+      aceptarSolicitud: async (id) => {
+        const { error } = await supabase.rpc("aceptar_solicitud", { p_pedido_id: id });
         if (error) throw new Error(error.message);
         await cargar();
       },
