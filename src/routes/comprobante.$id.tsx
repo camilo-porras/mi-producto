@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { formatoPesos, usePedidos } from "@/lib/pedidos";
+import { useAuth } from "@/lib/auth";
 import { MarcaTauro } from "@/components/MarcaTauro";
 
 export const Route = createFileRoute("/comprobante/$id")({
@@ -20,13 +21,13 @@ export const Route = createFileRoute("/comprobante/$id")({
 
 function Comprobante() {
   const { id } = Route.useParams();
-  const { pedidos, marcarEntregado, anularPedido } = usePedidos();
+  const { pedidos, marcarEntregado, anularPedido, aceptarSolicitud } = usePedidos();
+  const { perfil } = useAuth();
   const navigate = useNavigate();
   const pedido = pedidos.find((p) => p.id === id);
   const [entregando, setEntregando] = useState(false);
   const [errorEntrega, setErrorEntrega] = useState("");
   const [confirmandoAnular, setConfirmandoAnular] = useState(false);
-  const [anuladoPor, setAnuladoPor] = useState("");
   const [motivo, setMotivo] = useState("");
 
   const entregar = async (pedidoId: string) => {
@@ -41,11 +42,23 @@ function Comprobante() {
     }
   };
 
+  const aceptar = async (pedidoId: string) => {
+    setEntregando(true);
+    setErrorEntrega("");
+    try {
+      await aceptarSolicitud(pedidoId);
+    } catch (e) {
+      setErrorEntrega(e instanceof Error ? e.message : "No se pudo aceptar, intenta de nuevo.");
+    } finally {
+      setEntregando(false);
+    }
+  };
+
   const anular = async (pedidoId: string) => {
     setEntregando(true);
     setErrorEntrega("");
     try {
-      await anularPedido(pedidoId, anuladoPor, motivo);
+      await anularPedido(pedidoId, perfil?.nombre ?? "Personal", motivo);
       navigate({ to: "/" });
     } catch (e) {
       setErrorEntrega(e instanceof Error ? e.message : "No se pudo anular, intenta de nuevo.");
@@ -161,13 +174,29 @@ function Comprobante() {
                   {errorEntrega}
                 </p>
               ) : null}
-              <button
-                onClick={() => entregar(pedido.id)}
-                disabled={entregando}
-                className="superficie-cuero h-16 w-full rounded-2xl text-xl font-bold shadow-lg disabled:opacity-60"
-              >
-                {entregando && !confirmandoAnular ? "Entregando…" : "Marcar como entregado"}
-              </button>
+              {pedido.solicitado ? (
+                <>
+                  <p className="rounded-2xl bg-accent px-4 py-3 text-sm font-bold text-accent-foreground">
+                    Solicitud de un cliente por confirmar. Ponle el precio a cada producto con
+                    «Editar pedido» y luego acéptala.
+                  </p>
+                  <button
+                    onClick={() => aceptar(pedido.id)}
+                    disabled={entregando}
+                    className="superficie-cuero h-16 w-full rounded-2xl text-xl font-bold shadow-lg disabled:opacity-60"
+                  >
+                    {entregando && !confirmandoAnular ? "Aceptando…" : "Aceptar solicitud"}
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => entregar(pedido.id)}
+                  disabled={entregando}
+                  className="superficie-cuero h-16 w-full rounded-2xl text-xl font-bold shadow-lg disabled:opacity-60"
+                >
+                  {entregando && !confirmandoAnular ? "Entregando…" : "Marcar como entregado"}
+                </button>
+              )}
 
               {!confirmandoAnular ? (
                 <Link
@@ -182,25 +211,10 @@ function Comprobante() {
               {confirmandoAnular ? (
                 <div className="rounded-2xl border-2 border-destructive p-4">
                   <p className="text-center text-base font-bold">
-                    ¿Seguro que quieres anular este pedido?
+                    {pedido.solicitado
+                      ? "¿Seguro que quieres rechazar esta solicitud?"
+                      : "¿Seguro que quieres anular este pedido?"}
                   </p>
-                  <p className="mt-3 text-sm font-bold text-muted-foreground">¿Quién anula?</p>
-                  <div className="mt-2 grid grid-cols-2 gap-3">
-                    {["Don Tauro", "Ayudante"].map((q) => (
-                      <button
-                        key={q}
-                        type="button"
-                        onClick={() => setAnuladoPor(q)}
-                        className={`rounded-2xl border px-4 py-3 text-base font-bold ${
-                          anuladoPor === q
-                            ? "border-primary bg-accent text-accent-foreground"
-                            : "border-border bg-card text-muted-foreground"
-                        }`}
-                      >
-                        {q}
-                      </button>
-                    ))}
-                  </div>
                   <label
                     className="mt-3 block text-sm font-bold text-muted-foreground"
                     htmlFor="motivo"
@@ -218,7 +232,7 @@ function Comprobante() {
                   <div className="mt-3 grid grid-cols-2 gap-3">
                     <button
                       onClick={() => anular(pedido.id)}
-                      disabled={entregando || !anuladoPor || !motivo.trim()}
+                      disabled={entregando || !motivo.trim()}
                       className="h-14 rounded-2xl bg-destructive text-base font-bold text-destructive-foreground disabled:opacity-60"
                     >
                       Sí, anular
@@ -238,7 +252,7 @@ function Comprobante() {
                   disabled={entregando}
                   className="h-14 w-full rounded-2xl border-2 border-destructive bg-card text-base font-bold text-destructive disabled:opacity-60"
                 >
-                  Anular pedido
+                  {pedido.solicitado ? "Rechazar solicitud" : "Anular pedido"}
                 </button>
               )}
             </>

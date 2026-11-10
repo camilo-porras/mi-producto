@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { formatoPesos, resumenLineas, STOCK_BAJO, usePedidos } from "@/lib/pedidos";
+import { useAuth } from "@/lib/auth";
 import { MarcaTauro } from "@/components/MarcaTauro";
 
 export const Route = createFileRoute("/")({
@@ -23,9 +24,14 @@ export const Route = createFileRoute("/")({
 
 function Inicio() {
   const { pedidos, productos } = usePedidos();
+  const { perfil, salir } = useAuth();
   const porAgotarse = productos.filter((p) => p.disponible <= STOCK_BAJO).length;
-  const ordenados = [...pedidos].sort((a, b) => Number(a.entregado) - Number(b.entregado));
-  const pendientes = pedidos.filter((p) => !p.entregado);
+  // Primero las solicitudes por confirmar, luego los pendientes y al final los entregados
+  const grupo = (p: { solicitado: boolean; entregado: boolean }) =>
+    p.solicitado ? 0 : p.entregado ? 2 : 1;
+  const ordenados = [...pedidos].sort((a, b) => grupo(a) - grupo(b));
+  const solicitudes = pedidos.filter((p) => p.solicitado).length;
+  const pendientes = pedidos.filter((p) => !p.entregado && !p.solicitado);
   const totalPendiente = pendientes.reduce((s, p) => s + p.total, 0);
 
   return (
@@ -34,6 +40,12 @@ function Inicio() {
         <MarcaTauro className="pointer-events-none absolute right-5 top-7 h-20 w-20 object-contain" />
         <p className="text-sm uppercase tracking-widest text-accent">Mano Facturas Tauro</p>
         <h1 className="mt-1 pr-24 text-3xl font-semibold">Tauro Control — Pedidos de Don Tauro</h1>
+        <p className="mt-2 pr-24 text-sm text-accent">
+          Sesión: {perfil?.nombre} ·{" "}
+          <button type="button" onClick={salir} className="font-semibold underline">
+            Salir
+          </button>
+        </p>
         <div className="mt-6 rounded-2xl bg-background/15 p-4 backdrop-blur">
           <p className="text-sm text-accent">Pedidos pendientes hoy</p>
           <div className="mt-1 flex items-end justify-between">
@@ -44,6 +56,17 @@ function Inicio() {
       </header>
 
       <main className="px-5">
+        {solicitudes > 0 ? (
+          <p
+            role="status"
+            className="mt-6 rounded-2xl bg-accent px-4 py-3 text-sm font-bold text-accent-foreground"
+          >
+            {solicitudes === 1
+              ? "1 solicitud de cliente por confirmar"
+              : `${solicitudes} solicitudes de clientes por confirmar`}
+          </p>
+        ) : null}
+
         {porAgotarse > 0 ? (
           <Link
             to="/inventario"
@@ -78,7 +101,7 @@ function Inicio() {
         <ul className="mt-4 space-y-3">
           {ordenados.map((p) => {
             const totalPedido = p.total;
-            const esPendienteAlto = !p.entregado && totalPedido > 50000;
+            const esPendienteAlto = !p.entregado && !p.solicitado && totalPedido > 50000;
 
             return (
               <li key={p.id}>
@@ -94,10 +117,12 @@ function Inicio() {
                       className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-bold ${
                         p.entregado
                           ? "bg-muted text-muted-foreground"
-                          : "bg-accent text-accent-foreground"
+                          : p.solicitado
+                            ? "border-2 border-primary bg-card text-primary"
+                            : "bg-accent text-accent-foreground"
                       }`}
                     >
-                      {p.entregado ? "Entregado" : "Pendiente"}
+                      {p.entregado ? "Entregado" : p.solicitado ? "Por confirmar" : "Pendiente"}
                     </span>
                   </div>
                   <span
@@ -105,7 +130,7 @@ function Inicio() {
                       esPendienteAlto ? "text-destructive" : "text-primary"
                     }`}
                   >
-                    {formatoPesos(totalPedido)}
+                    {p.solicitado && totalPedido === 0 ? "Sin precio" : formatoPesos(totalPedido)}
                   </span>
                 </Link>
               </li>

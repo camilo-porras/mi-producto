@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { formatoPesos, usePedidos, type FormaPago, type LineaForm } from "@/lib/pedidos";
+import { useAuth } from "@/lib/auth";
 import { SelectorCliente } from "@/components/SelectorCliente";
 import { LineasPedido, lineaNueva, lineasValidas, totalDe } from "@/components/LineasPedido";
 import { MarcaTauro } from "@/components/MarcaTauro";
@@ -28,7 +29,8 @@ function NuevoPedido() {
   const [clienteId, setClienteId] = useState("");
   const [lineas, setLineas] = useState<LineaForm[]>([]);
   const [formaPago, setFormaPago] = useState<FormaPago>("efectivo");
-  const [registradoPor, setRegistradoPor] = useState("Don Tauro");
+  const { perfil } = useAuth();
+  const registradoPor = perfil?.nombre ?? "—";
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
 
@@ -89,26 +91,6 @@ function NuevoPedido() {
                 }`}
               >
                 {f}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <span className={etiqueta}>¿Quién registra el pedido?</span>
-          <div className="grid grid-cols-2 gap-3">
-            {["Don Tauro", "Ayudante"].map((q) => (
-              <button
-                key={q}
-                type="button"
-                onClick={() => setRegistradoPor(q)}
-                className={`rounded-2xl border px-4 py-4 text-base font-bold ${
-                  registradoPor === q
-                    ? "border-primary bg-accent text-accent-foreground"
-                    : "border-border bg-card text-muted-foreground"
-                }`}
-              >
-                {q}
               </button>
             ))}
           </div>

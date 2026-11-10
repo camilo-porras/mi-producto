@@ -12,7 +12,8 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { PedidosProvider } from "@/lib/pedidos";
-
+import { AuthProvider } from "@/lib/auth";
+import { PuertaDeAcceso } from "@/components/PuertaDeAcceso";
 
 function NotFoundComponent() {
   return (
@@ -133,11 +134,14 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <PedidosProvider>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
-      </PedidosProvider>
+      <AuthProvider>
+        <PuertaDeAcceso>
+          <PedidosProvider>
+            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+            <Outlet />
+          </PedidosProvider>
+        </PuertaDeAcceso>
+      </AuthProvider>
     </QueryClientProvider>
-
   );
 }
