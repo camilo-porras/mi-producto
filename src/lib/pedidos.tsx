@@ -66,7 +66,7 @@ export const resumenLineas = (p: Pick<Pedido, "lineas">) => {
 };
 
 // ---------------------------------------------------------------- Productos
-export type Producto = { id: string; nombre: string; stock: number };
+export type Producto = { id: string; nombre: string; stock: number; precio: number };
 
 // stock = unidades físicas en bodega. comprometido = unidades apartadas por pedidos
 // pendientes. disponible = lo que realmente se puede ofrecer (stock - comprometido).
@@ -180,7 +180,8 @@ type Ctx = {
   marcarEntregado: (id: string) => Promise<void>;
   aceptarSolicitud: (id: string) => Promise<void>;
   anularPedido: (id: string, anuladoPor: string, motivo: string) => Promise<void>;
-  crearProducto: (nombre: string, stockInicial: number) => Promise<void>;
+  crearProducto: (nombre: string, stockInicial: number, precio: number) => Promise<void>;
+  editarProducto: (id: string, nombre: string, precio: number) => Promise<void>;
   registrarMovimiento: (
     productoId: string,
     tipo: "entrada" | "salida",
@@ -202,7 +203,7 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
   // READ: lee productos, clientes y pedidos (con sus renglones) desde Supabase.
   const cargar = useCallback(async () => {
     const [prod, cli, ped] = await Promise.all([
-      supabase.from("productos").select("id, nombre, stock").order("nombre"),
+      supabase.from("productos").select("id, nombre, stock, precio").order("nombre"),
       supabase.from("clientes").select(COLUMNAS_CLIENTE).order("nombre"),
       supabase.from("pedidos").select(COLUMNAS_PEDIDO).order("created_at", { ascending: false }),
     ]);
@@ -210,7 +211,12 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
       console.error("Error leyendo Supabase:", prod.error ?? cli.error ?? ped.error);
       return;
     }
-    setProductos(prod.data as Producto[]);
+    setProductos(
+      (prod.data as (Omit<Producto, "precio"> & { precio: number | string })[]).map((p) => ({
+        ...p,
+        precio: Number(p.precio),
+      })),
+    );
     setClientes((cli.data as FilaCliente[]).map(aCliente));
     setFilas(ped.data as unknown as FilaPedido[]);
   }, []);
@@ -327,16 +333,34 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
       },
 
       // CREATE (inventario): agrega un producto nuevo.
-      crearProducto: async (nombre, stockInicial) => {
+      crearProducto: async (nombre, stockInicial, precio) => {
         const { data, error } = await supabase.rpc("crear_producto", {
           p_nombre: nombre,
           p_stock_inicial: stockInicial,
+          p_precio: precio,
         });
         if (error) throw new Error(error.message);
         setProductos((prev) =>
-          [...prev, { id: data as string, nombre: nombre.trim(), stock: stockInicial }].sort(
-            (a, b) => a.nombre.localeCompare(b.nombre),
-          ),
+          [
+            ...prev,
+            { id: data as string, nombre: nombre.trim(), stock: stockInicial, precio },
+          ].sort((a, b) => a.nombre.localeCompare(b.nombre)),
+        );
+      },
+
+      // UPDATE (inventario): cambia el nombre o el precio de un producto. Solo el personal
+      // puede hacerlo (la base lo exige). El stock solo cambia con entradas y salidas.
+      editarProducto: async (id, nombre, precio) => {
+        const { error } = await supabase.rpc("editar_producto", {
+          p_id: id,
+          p_nombre: nombre,
+          p_precio: precio,
+        });
+        if (error) throw new Error(error.message);
+        setProductos((prev) =>
+          prev
+            .map((p) => (p.id === id ? { ...p, nombre: nombre.trim(), precio } : p))
+            .sort((a, b) => a.nombre.localeCompare(b.nombre)),
         );
       },
 
