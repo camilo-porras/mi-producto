@@ -22,6 +22,7 @@ function NuevoProducto() {
   const navigate = useNavigate();
   const [nombre, setNombre] = useState("");
   const [stock, setStock] = useState(0);
+  const [precio, setPrecio] = useState(0);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
 
@@ -31,7 +32,7 @@ function NuevoProducto() {
     setGuardando(true);
     setError("");
     try {
-      await crearProducto(nombre, stock);
+      await crearProducto(nombre, stock, precio);
       navigate({ to: "/inventario" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "No pudimos guardar el producto.");
@@ -79,6 +80,26 @@ function NuevoProducto() {
           />
           <p className="mt-2 text-xs text-muted-foreground">
             Si todavía no tienes unidades, déjalo en 0 y regístralas después como una entrada.
+          </p>
+        </div>
+
+        <div>
+          <label className={etiqueta} htmlFor="precio">
+            Precio de venta
+          </label>
+          <input
+            id="precio"
+            type="number"
+            min={0}
+            step={1000}
+            inputMode="numeric"
+            className={campo}
+            value={precio}
+            onChange={(e) => setPrecio(Math.max(0, Number(e.target.value)))}
+          />
+          <p className="mt-2 text-xs text-muted-foreground">
+            Es el precio que verán los clientes. Si lo dejas en 0, los clientes no podrán
+            solicitarlo hasta que lo definas.
           </p>
         </div>
 

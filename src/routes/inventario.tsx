@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { STOCK_BAJO, usePedidos } from "@/lib/pedidos";
+import { STOCK_BAJO, formatoPesos, usePedidos } from "@/lib/pedidos";
 import { MarcaTauro } from "@/components/MarcaTauro";
 
 export const Route = createFileRoute("/inventario")({
@@ -53,6 +53,16 @@ function Inventario() {
               <li key={p.id} className="flex items-center justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
                   <p className="truncate">{p.nombre}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {p.precio > 0 ? formatoPesos(p.precio) : "Sin precio"} ·{" "}
+                    <Link
+                      to="/producto/$id"
+                      params={{ id: p.id }}
+                      className="font-semibold text-primary underline"
+                    >
+                      Editar
+                    </Link>
+                  </p>
                   {p.comprometido > 0 ? (
                     <p className="text-xs text-muted-foreground">
                       {p.stock} en bodega · {p.comprometido} apartado
