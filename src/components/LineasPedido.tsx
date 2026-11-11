@@ -35,7 +35,7 @@ export function lineaNueva(
 ): LineaForm | null {
   const libres = productos.filter((p) => !lineas.some((l) => l.productoId === p.id));
   const elegido = libres.find((p) => limiteDe(p, propias) > 0) ?? libres[0];
-  return elegido ? { productoId: elegido.id, cantidad: 1, precioUnitario: 45000 } : null;
+  return elegido ? { productoId: elegido.id, cantidad: 1, precioUnitario: elegido.precio } : null;
 }
 
 type Props = {
@@ -86,7 +86,14 @@ export function LineasPedido({ lineas, onChange, productos, propias }: Props) {
                 id={`prod-${i}`}
                 className={campo}
                 value={l.productoId}
-                onChange={(e) => cambiar(i, { productoId: e.target.value })}
+                onChange={(e) =>
+                  cambiar(i, {
+                    productoId: e.target.value,
+                    // al cambiar de producto, el precio sugerido es el de ese producto
+                    precioUnitario:
+                      productos.find((p) => p.id === e.target.value)?.precio ?? l.precioUnitario,
+                  })
+                }
               >
                 {opciones.map((p) => (
                   <option key={p.id} value={p.id}>

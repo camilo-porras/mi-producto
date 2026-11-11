@@ -4,7 +4,7 @@ import { formatoPesos } from "@/lib/pedidos";
 import { supabase } from "@/lib/supabase";
 import { MarcaTauro } from "@/components/MarcaTauro";
 
-type ItemCatalogo = { id: string; nombre: string; disponible: number };
+type ItemCatalogo = { id: string; nombre: string; precio: number | string; disponible: number };
 
 type Solicitud = {
   id: string;
@@ -74,6 +74,11 @@ export function AppCliente() {
     });
 
   const elegidos = Object.entries(cantidades).filter(([, c]) => c > 0);
+  const unidadesElegidas = elegidos.reduce((s, [, c]) => s + c, 0);
+  const totalElegido = elegidos.reduce(
+    (s, [id, c]) => s + c * Number(catalogo.find((p) => p.id === id)?.precio ?? 0),
+    0,
+  );
 
   const solicitar = async () => {
     if (elegidos.length === 0) return;
@@ -91,7 +96,7 @@ export function AppCliente() {
     await cargar();
     setAviso({
       tipo: "ok",
-      texto: "Solicitud enviada. Don Tauro la revisará y te confirmará el precio.",
+      texto: "Solicitud enviada. Don Tauro la revisará y te confirmará.",
     });
     setPestana("solicitudes");
     setEnviando(false);
@@ -149,7 +154,7 @@ export function AppCliente() {
           <>
             <p className="text-sm text-muted-foreground">
               Elige cuántas unidades quieres de cada producto. Don Tauro revisará tu solicitud y te
-              confirmará el precio.
+              la confirmará. Los precios y las cantidades los define el negocio.
             </p>
             {catalogo.length === 0 ? (
               <p className="text-sm text-muted-foreground">Todavía no hay productos.</p>
@@ -164,6 +169,11 @@ export function AppCliente() {
                     >
                       <div className="min-w-0">
                         <p className="text-lg font-semibold">{p.nombre}</p>
+                        <p className="text-lg font-bold text-primary">
+                          {Number(p.precio) > 0
+                            ? formatoPesos(Number(p.precio))
+                            : "Precio por definir"}
+                        </p>
                         <p
                           className={`text-sm font-bold ${
                             p.disponible === 0 ? "text-destructive" : "text-muted-foreground"
@@ -172,7 +182,7 @@ export function AppCliente() {
                           {p.disponible === 0 ? "Agotado" : `${p.disponible} disponibles`}
                         </p>
                       </div>
-                      {p.disponible > 0 ? (
+                      {p.disponible > 0 && Number(p.precio) > 0 ? (
                         <div className="flex shrink-0 items-center gap-2">
                           <button
                             type="button"
@@ -225,7 +235,8 @@ export function AppCliente() {
                       {(s.pedido_items ?? []).map((i) => (
                         <li key={i.producto_id}>
                           {i.cantidad} ×{" "}
-                          {catalogo.find((c) => c.id === i.producto_id)?.nombre ?? "Producto"}
+                          {catalogo.find((c) => c.id === i.producto_id)?.nombre ?? "Producto"} ·{" "}
+                          {formatoPesos(i.cantidad * Number(i.precio_unitario))}
                         </li>
                       ))}
                     </ul>
@@ -259,7 +270,7 @@ export function AppCliente() {
               ? "Enviando…"
               : elegidos.length === 0
                 ? "Elige productos para solicitar"
-                : `Solicitar pedido (${elegidos.reduce((s, [, c]) => s + c, 0)} unidades)`}
+                : `Solicitar pedido · ${unidadesElegidas} unidades · ${formatoPesos(totalElegido)}`}
           </button>
         </div>
       ) : null}
