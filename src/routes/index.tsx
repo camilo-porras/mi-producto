@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { formatoPesos, resumenLineas, STOCK_BAJO, usePedidos } from "@/lib/pedidos";
 import { useAuth } from "@/lib/auth";
 import { MarcaTauro } from "@/components/MarcaTauro";
+import { AlertasIA } from "@/components/AlertasIA";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -79,6 +80,8 @@ function Inicio() {
             · Ver inventario
           </Link>
         ) : null}
+
+        <AlertasIA />
 
         <div className="mt-6">
           <h2 className="text-xl font-semibold">Pedidos del día</h2>
